@@ -104,6 +104,9 @@ def caller_number(raw_data):
 class VoteAgent(AgentBase):
     def __init__(self):
         super().__init__(name="vote-line", route="/agent")
+        # Voice: Inworld "Ashley" (case-sensitive). Combined engine.voice:model form
+        # → engine=inworld, voice=Ashley, model=inworld-tts-1.5-max.
+        self.add_language("English", "en-US", "inworld.Ashley:inworld-tts-1.5-max")
         self.prompt_add_section(
             "Role",
             body=("You are the automated vote line for 'The Prompt Pit', a live "
