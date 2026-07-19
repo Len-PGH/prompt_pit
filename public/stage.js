@@ -161,6 +161,13 @@
     $('ch-brief').textContent = ch.brief;
   }
 
+  // Pretty-print a US/E.164 number, e.g. +14122860700 -> +1 (412) 286-0700.
+  function fmtPhone(n) {
+    var d = String(n || '').replace(/[^\d+]/g, '');
+    var m = d.match(/^\+?1?(\d{3})(\d{3})(\d{4})$/);
+    return m ? ('+1 (' + m[1] + ') ' + m[2] + '-' + m[3]) : (n || '');
+  }
+
   // Small corner float — VOTE only. Registration uses the full pre-show board.
   function renderQr(s) {
     var f = $('qr-float');
@@ -169,6 +176,14 @@
       $('qr-big').textContent = 'Vote Now!';
       $('qr-sub').textContent = 'Scan to pick your winner';
       $('qr-url').textContent = (s.publicUrl || '').replace(/\/+$/, '') + '/vote';
+      // Call + SMS option (only if a voting number is configured).
+      var ph = $('qr-phone');
+      if (s.voteNumber) {
+        $('qr-phone-num').textContent = fmtPhone(s.voteNumber);
+        ph.style.display = '';
+      } else {
+        ph.style.display = 'none';
+      }
       f.classList.add('show');
     } else {
       f.classList.remove('show');

@@ -88,6 +88,8 @@ function restoreSnapshot() {
     // Refresh static catalog from code so challenge edits/deploys take effect.
     state.challenges = CHALLENGES;
     state.criteria = CRITERIA;
+    // Always reflect the current env's voting number (may change between runs).
+    state.voteNumber = process.env.VOTE_NUMBER || '';
     // Backfill fields added after older snapshots were written, and self-heal
     // any voteBreakdown left stale by the pre-fix reseed bug: if a side has no
     // votes, its channel breakdown must be zero too (Stage reads votes, Stats
@@ -303,6 +305,8 @@ function initialState() {
       history: [], // [{ text, at, matchId, matchLabel, a, b }] newest-first
     },
     publicUrl: process.env.PUBLIC_URL || '',
+    // Public voting phone number (call + SMS). Shown on the Stage vote card.
+    voteNumber: process.env.VOTE_NUMBER || '',
     // QR data URLs for each public destination (vote + register).
     qr: { vote: '', register: '' },
     // Which QR the Stage shows: 'vote' | 'register' | null.

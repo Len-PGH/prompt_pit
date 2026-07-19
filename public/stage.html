@@ -240,6 +240,11 @@
   .qr-float .call .big { font-size: clamp(22px,2.4vw,38px); font-weight:800; text-transform:uppercase; color: var(--gold); line-height:1; }
   .qr-float .call .sub { color: var(--muted); margin-top:6px; font-size: clamp(12px,1.1vw,16px); }
   .qr-float .call .url { font-family:var(--mono); font-size: clamp(11px,1vw,14px); color:var(--txt); margin-top:8px; word-break:break-all; }
+  .qr-float .call .phone { margin-top: 12px; }
+  .qr-float .call .phone .por { color: var(--muted); font-size: clamp(10px,0.9vw,13px); letter-spacing:0.18em; text-transform:uppercase; }
+  .qr-float .call .phone .plabel { margin-top: 6px; color: var(--muted); font-size: clamp(12px,1.05vw,16px); }
+  .qr-float .call .phone .plabel b { color: var(--txt); }
+  .qr-float .call .phone .pnum { margin-top: 4px; font-family: var(--mono); font-weight: 800; color: var(--gold); font-size: clamp(18px,1.9vw,28px); white-space: nowrap; }
 
   /* sabotage overlay */
   .overlay {
@@ -441,6 +446,11 @@
     <div class="big" id="qr-big">Vote Now!</div>
     <div class="sub" id="qr-sub">Scan to pick your winner</div>
     <div class="url" id="qr-url"></div>
+    <div class="phone" id="qr-phone">
+      <div class="por">— or —</div>
+      <div class="plabel">Call &amp; say, or text <b>A</b> / <b>B</b> to</div>
+      <div class="pnum" id="qr-phone-num"></div>
+    </div>
   </div>
 </div>
 
