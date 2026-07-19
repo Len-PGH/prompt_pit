@@ -113,14 +113,15 @@ The whole point: no app to install, and every channel feeds one source of truth.
 | Channel | How the audience votes | Under the hood |
 |---|---|---|
 | **Web / QR** | Scan the Stage QR → tap A or B | Socket.IO `vote` event, deduped per device token |
-| **SMS** | Text `A`/`B` (or `STATUS` for a live score) | SignalWire **SWML** messaging webhook (`reply` verb) |
+| **SMS** | Text `A`/`B` (or `STATUS` for a live score, `LINEUP` for the field) | SignalWire **SWML** messaging webhook (`reply` verb) |
 | **Phone (AI)** | Call and _say_ your pick | SignalWire **Agents SDK** voice agent with SWAIG tools |
 
 The phone agent and SMS webhook both POST to the Node app's internal, token-gated
 bridge (`/api/external-vote`), so a call, a text, and a QR tap all increment the
 same match and can never drift apart. The agent's SWAIG tools — `get_matchup`,
-`cast_vote`, `get_standings`, `get_time_remaining`, `get_bracket` — read the live
-show state so callers get accurate, in-the-moment answers.
+`cast_vote`, `get_standings`, `get_time_remaining`, `get_bracket`, `get_lineup` —
+read the live show state so callers get accurate, in-the-moment answers (who's
+competing, when someone goes, who won or lost, who's on stage, who's champion).
 
 ---
 

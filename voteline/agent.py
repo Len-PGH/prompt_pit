@@ -74,6 +74,14 @@ def fetch_showinfo():
         return {}
 
 
+def fetch_lineup():
+    try:
+        r = httpx.get(f"{NODE_URL}/api/lineup", timeout=HTTP_TIMEOUT)
+        return r.json()
+    except Exception:
+        return {}
+
+
 def post_vote(side, voter, channel):
     try:
         r = httpx.post(
@@ -148,7 +156,9 @@ class VoteAgent(AgentBase):
                 "- Who's winning / the score / who's ahead -> get_standings (live running "
                 "totals while voting is open, plus whether voting has closed and who won).\n"
                 "- How much time is left / the clock -> get_time_remaining.\n"
-                "- The bracket, who advanced, who the champion is -> get_bracket.\n"
+                "- The bracket totals / who the champion is -> get_bracket.\n"
+                "- Who the contestants are, when someone goes, did someone win/lose, "
+                "who's on stage -> get_lineup.\n"
                 "Only report what the tool returns — never guess or invent a leader, score, or time."
             ),
         )
@@ -308,6 +318,27 @@ class VoteAgent(AgentBase):
             parts.append(f"Recently advanced: {recent}.")
         return FunctionResult(" ".join(parts))
 
+    @AgentBase.tool(
+        name="get_lineup",
+        description="Get the full contestant lineup and each one's status from the bracket: "
+                    "who is competing, when they go, whether they've played, whether they won "
+                    "or lost, who's on stage now, and the champion. Use for questions like "
+                    "'who are the contestants', 'when does X go', 'did X win', 'is X still in'.",
+        parameters={"type": "object", "properties": {}},
+    )
+    def get_lineup(self, args, raw_data):
+        d = fetch_lineup()
+        cs = (d or {}).get("contestants") or []
+        if not cs:
+            return FunctionResult("The lineup isn't set yet.")
+        # Give the model every contestant's status; it answers just what was asked.
+        summary = ". ".join(c["detail"] for c in cs)
+        champ = f" {d['champion']} is the champion." if d.get("champion") else ""
+        return FunctionResult(
+            f"There are {len(cs)} contestants. {summary}.{champ} "
+            "Answer only what the caller asked; don't read the whole list unless they want it."
+        )
+
 
 # Module-level app so uvicorn can serve "agent:app".
 _agent = VoteAgent()
@@ -400,6 +431,20 @@ def _sms_status_line():
     return " | ".join(bits) if bits else "The show hasn't started yet."
 
 
+_SMS_STATUS_TAG = {"champion": "CHAMP", "on_stage": "LIVE", "advanced": "won",
+                   "eliminated": "out", "upcoming": "next"}
+
+
+def _sms_lineup_line():
+    """Compact SMS roster: each contestant + a short status tag."""
+    d = fetch_lineup()
+    cs = (d or {}).get("contestants") or []
+    if not cs:
+        return "Lineup isn't set yet."
+    parts = [f"{c['name']}:{_SMS_STATUS_TAG.get(c['status'], c['status'])}" for c in cs]
+    return " · ".join(parts)
+
+
 def _map_keyword(text, d):
     t = (text or "").strip().lower()
     a_name = ((d.get("a") or {}).get("name") or "").strip().lower()
@@ -429,8 +474,12 @@ async def sms(request: Request):
         return reply("Vote line not configured.")
 
     # Status keyword: text back a one-line show update (no vote recorded).
-    if (body or "").strip().lower() in ("status", "info", "score", "who", "?"):
+    if (body or "").strip().lower() in ("status", "info", "score", "?"):
         return reply(_sms_status_line())
+
+    # Lineup keyword: text back the contestant roster + status.
+    if (body or "").strip().lower() in ("lineup", "line up", "who", "contestants", "bracket"):
+        return reply(_sms_lineup_line())
 
     d = fetch_matchup()
     if not d.get("votingOpen"):

@@ -774,6 +774,70 @@ app.get('/api/showinfo', (_req, res) => {
   });
 });
 
+// Per-contestant lineup for the voice/SMS agent — everything on the bracket card,
+// phrased per person: who they are, when they go, and whether they're on stage
+// now / won & advanced / were eliminated / up next / champion. Names only.
+function computeLineup() {
+  const nameOf = (id) => (state.contestants.find((c) => c.id === id) || {}).name || null;
+  const cur = state.matches[state.currentMatchId] || null;
+  // Which matches each contestant appears in, in bracket order.
+  const appear = {};
+  for (const c of state.contestants) appear[c.id] = [];
+  for (const mid of MATCH_ORDER) {
+    const m = state.matches[mid];
+    for (const side of ['a', 'b']) {
+      if (m[side] && appear[m[side]]) appear[m[side]].push({ mid, side, m });
+    }
+  }
+  const contestants = state.contestants.map((c, i) => {
+    const mine = appear[c.id];
+    let wins = 0, losses = 0;
+    for (const e of mine) if (e.m.winner) (e.m.winner === e.side ? wins++ : losses++);
+    let status, detail;
+    if (state.champion === c.id) {
+      status = 'champion';
+      detail = `${c.name} is the champion`;
+    } else if (cur && (cur.a === c.id || cur.b === c.id) && !cur.winner) {
+      const opp = nameOf(cur[cur.a === c.id ? 'b' : 'a']);
+      status = 'on_stage';
+      detail = `${c.name} is on stage now in ${cur.label}` + (opp ? ` against ${opp}` : '');
+    } else if (losses > 0) {
+      const lost = mine.find((e) => e.m.winner && e.m.winner !== e.side);
+      const by = lost ? nameOf(lost.m[lost.m.winner]) : null;
+      status = 'eliminated';
+      detail = `${c.name} was eliminated in ${lost ? lost.m.label : 'an earlier round'}` + (by ? ` by ${by}` : '');
+    } else if (wins > 0) {
+      const won = mine.filter((e) => e.m.winner === e.side).slice(-1)[0];
+      const adv = won ? ADVANCES[won.mid] : null;
+      status = 'advanced';
+      if (adv) {
+        const nm = state.matches[adv.to];
+        const opp = nameOf(nm[adv.slot === 'a' ? 'b' : 'a']);
+        detail = `${c.name} won ${won.m.label} and ` +
+          (opp ? `faces ${opp} next in ${nm.label}` : `advances to ${nm.label}`);
+      } else {
+        detail = `${c.name} won ${won ? won.m.label : 'their match'}`;
+      }
+    } else {
+      const first = mine[0];
+      status = 'upcoming';
+      if (first) {
+        const opp = nameOf(first.m[first.side === 'a' ? 'b' : 'a']);
+        detail = `${c.name} hasn't competed yet — up in ${first.m.label}` + (opp ? ` against ${opp}` : '');
+      } else {
+        detail = `${c.name} isn't placed in the bracket yet`;
+      }
+    }
+    return { name: c.name, seed: i + 1, status, record: `${wins}-${losses}`, detail };
+  });
+  return {
+    champion: state.champion ? nameOf(state.champion) : null,
+    currentMatch: cur && cur.a && cur.b ? { label: cur.label, a: nameOf(cur.a), b: nameOf(cur.b) } : null,
+    contestants,
+  };
+}
+app.get('/api/lineup', (_req, res) => res.json(computeLineup()));
+
 // Aggregated end-of-show stats — PII-safe (names + GitHub only). Winner of each
 // bracket match, per-contestant vote totals broken down by channel (web/SMS/
 // phone), judges' points, and the full sabotage log.
