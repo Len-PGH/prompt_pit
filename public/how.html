@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Prompt Pit — How It Works</title>
+<link rel="stylesheet" href="/app.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  .howwrap { max-width: 1000px; margin: 0 auto; padding: clamp(18px, 3vw, 44px) clamp(16px, 2.4vw, 36px) 72px; }
+  .hero h1 { font-family: var(--font); font-weight: 700; font-size: clamp(28px, 5vw, 52px); letter-spacing: 0.5px; margin: 0 0 6px;
+    background: linear-gradient(100deg, var(--a), var(--blue) 55%, var(--b)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p { color: var(--muted); font-size: clamp(15px, 2vw, 19px); max-width: 62ch; margin: 0 0 8px; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--a); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; margin-bottom: 14px; }
+
+  h2 { font-family: var(--font); font-weight: 600; font-size: clamp(18px, 2.4vw, 24px); margin: 38px 0 14px; }
+  h2 .n { color: var(--blue); font-family: var(--mono); font-size: 15px; margin-right: 10px; }
+  p.lead { color: var(--txt); line-height: 1.6; max-width: 68ch; }
+  .muted { color: var(--muted); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 8px 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; box-shadow: var(--elev-1); }
+  .card .ic { font-size: 24px; margin-bottom: 8px; }
+  .card h3 { font-family: var(--font); font-weight: 600; font-size: 16px; margin: 0 0 4px; }
+  .card code { font-family: var(--mono); font-size: 12px; color: var(--a); background: rgba(64,224,208,0.08); padding: 1px 6px; border-radius: 6px; }
+  .card p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 6px 0 0; }
+
+  /* voting channel row */
+  .chan { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .chan .c { text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: var(--elev-1); }
+  .chan .c .ic { font-size: 30px; }
+  .chan .c b { display: block; font-family: var(--font); margin: 8px 0 4px; }
+  .chan .c span { color: var(--muted); font-size: 13px; }
+  .funnel { text-align: center; margin: 12px auto 0; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  .funnel .box { display: inline-block; margin-top: 10px; padding: 10px 20px; border-radius: 12px; color: var(--txt);
+    background: linear-gradient(100deg, rgba(64,224,208,0.16), rgba(247,42,114,0.16)); border: 1px solid var(--line); font-family: var(--body); font-weight: 600; }
+
+  /* pipeline diagram */
+  .pipe { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-family: var(--mono); font-size: 13px; margin: 10px 0; }
+  .pipe .node { background: var(--panel-solid); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .pipe .node.k { border-color: rgba(4,78,244,0.6); }
+  .pipe .arr { color: var(--muted); }
+
+  ol.flow { counter-reset: s; list-style: none; padding: 0; margin: 6px 0; }
+  ol.flow li { position: relative; padding: 10px 12px 10px 44px; border-left: 2px solid var(--line); margin-left: 12px; }
+  ol.flow li::before { counter-increment: s; content: counter(s); position: absolute; left: -15px; top: 8px; width: 28px; height: 28px;
+    display: grid; place-items: center; border-radius: 50%; background: var(--blue); color: #fff; font-family: var(--mono); font-size: 13px; }
+  ol.flow li b { font-family: var(--font); }
+  ol.flow li span { color: var(--muted); }
+
+  .note { background: rgba(4,78,244,0.08); border: 1px solid rgba(4,78,244,0.3); border-radius: 12px; padding: 12px 16px; color: var(--txt); font-size: 14px; line-height: 1.5; }
+  .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .links a { font-family: var(--mono); font-size: 13px; text-decoration: none; color: var(--txt); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; }
+  .links a:hover { border-color: var(--a); }
+  footer { margin-top: 46px; color: var(--muted); font-family: var(--mono); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body class="scroll">
+  <div class="howwrap">
+    <div class="hero">
+      <span class="tag">How it works</span>
+      <h1>The Prompt Pit</h1>
+      <p>An esports-style control room for a live vibe-coding championship. One
+      container drives every screen in the room and lets the whole audience vote
+      from their phones — by web, text, or a phone call answered by an AI agent —
+      all into one live tally.</p>
+    </div>
+
+    <h2><span class="n">01</span>The surfaces</h2>
+    <p class="lead">Every screen is a page served by the same server and kept in
+    lock-step over WebSockets. Change something in the booth and the projector
+    updates instantly.</p>
+    <div class="cards">
+      <div class="card"><div class="ic">🖥️</div><h3>Stage <code>/stage</code></h3><p>The big screen: matchup, countdown, scores, sabotage wheel, QR codes, champion celebration.</p></div>
+      <div class="card"><div class="ic">🎛️</div><h3>Operator <code>/operator</code></h3><p>Booth control — bracket, timers, judging, voting, show-flow phases. Key-gated with scoped access.</p></div>
+      <div class="card"><div class="ic">📱</div><h3>Vote <code>/vote</code></h3><p>What the audience opens from the on-screen QR. One tap for Station A or B.</p></div>
+      <div class="card"><div class="ic">📝</div><h3>Register <code>/register</code></h3><p>Contestant portal: format, what to bring, challenge picker, starter kits, sign-up.</p></div>
+      <div class="card"><div class="ic">📊</div><h3>Stats <code>/stats</code></h3><p>Live leaderboard: bracket results, votes by channel per contestant, sabotage log.</p></div>
+    </div>
+
+    <h2><span class="n">02</span>Three ways to vote, one tally</h2>
+    <p class="lead">The audience doesn't need an app. Whichever way a vote comes
+    in, it lands in the same per-match count and is de-duplicated per device or
+    phone number.</p>
+    <div class="chan">
+      <div class="c"><div class="ic">🌐</div><b>Web / QR</b><span>Scan the Stage QR → tap A or B. Deduped per device token.</span></div>
+      <div class="c"><div class="ic">💬</div><b>SMS</b><span>Text <code>A</code> or <code>B</code> to the number. Text <code>STATUS</code> for a live score.</span></div>
+      <div class="c"><div class="ic">📞</div><b>Phone (AI)</b><span>Call in and just say who you're voting for — a SignalWire AI agent records it.</span></div>
+    </div>
+    <div class="funnel">all three feed →<div class="box">one live tally per match</div></div>
+
+    <h2><span class="n">03</span>One container, one URL</h2>
+    <p class="lead">Everything ships in a single Docker container and is exposed
+    through one Cloudflare tunnel — so the web app, the phone agent, and SMS all
+    live on the same public URL.</p>
+    <div class="pipe">
+      <span class="node">☎️ Caller / 💬 Texter / 🌐 Phone browser</span>
+      <span class="arr">→</span>
+      <span class="node k">Cloudflare tunnel (one URL)</span>
+      <span class="arr">→</span>
+      <span class="node">Node + Socket.IO app :3000</span>
+      <span class="arr">→ /agent, /sms →</span>
+      <span class="node">Python SignalWire agent :8100</span>
+    </div>
+    <p class="muted" style="font-size:14px">The Node app serves the web surfaces and reverse-proxies <code>/agent</code> and
+    <code>/sms</code> to the Python SignalWire Agents-SDK service. The phone agent and SMS webhook post votes back to the app's
+    internal bridge, so voice/SMS votes and web votes share one source of truth.</p>
+
+    <h2><span class="n">04</span>Running a match</h2>
+    <ol class="flow">
+      <li><b>Register &amp; draw</b> <span>— contestants sign up at <code>/register</code>; the operator draws 8 into the bracket.</span></li>
+      <li><b>Introduce</b> <span>— Stage shows the matchup and the active challenge.</span></li>
+      <li><b>Compete</b> <span>— the operator starts the countdown; contestants build live.</span></li>
+      <li><b>Judge</b> <span>— judges score on six criteria from the operator panel.</span></li>
+      <li><b>Vote</b> <span>— voting opens; the audience votes by web, SMS, or phone.</span></li>
+      <li><b>Declare</b> <span>— one button combines judges' scores + audience votes and crowns the round winner, advancing the bracket.</span></li>
+      <li><b>Champion</b> <span>— win the final and the Stage erupts.</span></li>
+    </ol>
+
+    <h2><span class="n">05</span>Built to be safe to run live</h2>
+    <div class="note">
+      Secrets stay in a git-ignored <code>.env</code> and are never baked into the image. Audience
+      pages never receive personal data (emails stay server-side, sent only to authenticated operators).
+      Operator keys are scoped and revocable, and the app runs as a non-root user with security headers and a strict CSP.
+    </div>
+
+    <div class="links">
+      <a href="/stage">Stage →</a>
+      <a href="/vote">Vote →</a>
+      <a href="/register">Register →</a>
+      <a href="/stats">Stats →</a>
+      <a href="/operator">Operator →</a>
+    </div>
+
+    <footer>The Prompt Pit · ClueCon 2026 · Vibe Coding Championship</footer>
+  </div>
+</body>
+</html>

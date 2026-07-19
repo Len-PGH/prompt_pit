@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>The Prompt Pit — Vote</title>
+<link rel="stylesheet" href="/app.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { overflow:auto; }
+  .v { min-height:100%; display:flex; flex-direction:column; padding:20px; max-width:560px; margin:0 auto; }
+  .v-head { text-align:center; padding:8px 0 14px; }
+  .v-head .logo { font-size:30px; }
+  .v-head .sub { color:var(--muted); letter-spacing:0.01em; text-transform:none; font-size:11px; margin-top:6px; }
+  .prompt { text-align:center; color:var(--muted); letter-spacing:0.01em; text-transform:none; font-size:12px; margin:14px 0 8px; }
+  .match-name { text-align:center; font-weight:700; text-transform:none; letter-spacing:0.01em; margin-bottom:16px; color:var(--gold); }
+
+  .choices { display:flex; flex-direction:column; gap:14px; flex:1; }
+  .choice {
+    border-radius:24px; border:1px solid var(--line); background:var(--bg2);
+    box-shadow: var(--elev-2);
+    padding:30px 20px; text-align:center; font-weight:800; text-transform:none;
+    font-size:26px; letter-spacing:0.01em; color:var(--txt);
+    transition: transform 0.1s, box-shadow 0.2s, border-color 0.2s; position:relative; overflow:hidden;
+    -webkit-tap-highlight-color: transparent; user-select:none; cursor:pointer;
+    word-break:break-word;
+  }
+  .choice .tag { display:block; font-size:12px; letter-spacing:0.01em; margin-bottom:8px; }
+  .choice.a { border-color: rgba(64,224,208,0.4); }
+  .choice.a .tag { color: var(--a); }
+  .choice.b { border-color: rgba(247,42,114,0.4); }
+  .choice.b .tag { color: var(--b); }
+  .choice:active { transform:scale(0.98); }
+  .choice.picked.a { border-color:var(--a); box-shadow: var(--glow-a); }
+  .choice.picked.b { border-color:var(--b); box-shadow: var(--glow-b); }
+  .choice.picked::after { content:"✓ YOUR VOTE"; position:absolute; top:10px; right:14px; font-size:11px; letter-spacing:0.01em; color:var(--green); }
+  .choice[disabled] { opacity:0.5; }
+
+  .state-msg { text-align:center; padding:40px 20px; color:var(--muted); }
+  .state-msg .big { font-size:22px; color:var(--txt); font-weight:700; margin-bottom:8px; }
+  .foot { text-align:center; color:var(--muted); font-size:11px; margin-top:18px; letter-spacing:0.01em; }
+  #closed { display:none; }
+  #choices { display:none; }
+
+  /* google refinements */
+  .logo .pit{background:none;-webkit-text-fill-color:var(--txt);color:var(--txt);filter:none}
+  .logo .the{color:var(--muted)}
+  .match-name{color:var(--txt)}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="v">
+  <div class="v-head">
+    <div class="logo"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
+    <div class="sub" id="v-sub">ClueCon 2026</div>
+  </div>
+
+  <div class="prompt">Tap to cast your vote</div>
+  <div class="match-name" id="v-match">—</div>
+
+  <div class="choices" id="choices">
+    <button class="choice a" id="ch-a"><span class="tag">◤ Station A</span><span id="ch-a-name">—</span></button>
+    <button class="choice b" id="ch-b"><span class="tag">Station B ◥</span><span id="ch-b-name">—</span></button>
+  </div>
+
+  <div class="state-msg" id="closed">
+    <div class="big" id="closed-big">Voting is closed</div>
+    <div id="closed-sub">Hang tight — the next round is coming up.</div>
+  </div>
+
+  <div class="foot">One vote per device · you can change it while voting is open</div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/ui.js"></script>
+<script src="/vote.js"></script>
+</body>
+</html>

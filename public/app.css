@@ -1,0 +1,176 @@
+/* The Prompt Pit — SignalWire-branded esports theme.
+   Palette from the SignalWire design system (get_design tokens):
+   blue #044EF4 (structure/primary), fuchsia #F72A72 (accent),
+   purple #601BE6 (gradients/glows), turquoise #40E0D0, gold #FFD700 (warnings only).
+   Station A = turquoise, Station B = fuchsia (two legible brand hues). */
+:root {
+  --bg: #0e0e18;            /* page */
+  --bg2: #181a28;           /* surface */
+  --panel: rgba(34, 36, 54, 0.72);  /* surface-raised @ translucent */
+  --panel-solid: #222436;   /* surface-raised */
+  --line: rgba(255, 255, 255, 0.12);
+  --txt: #f0f0f4;           /* fg-default */
+  --muted: #a0a0aa;         /* fg-muted */
+  --a: #40E0D0;   /* Station A — turquoise */
+  --b: #F72A72;   /* Station B — fuchsia (brand accent) */
+  --blue: #044EF4;          /* structural / primary buttons / focus */
+  --purple: #601BE6;        /* gradient midpoint / glows */
+  --gold: #FFD700;          /* warnings only */
+  --green: #22c55e;         /* status success */
+  --red: #ef4444;           /* status error */
+  /* Softer, Google/Material-leaning: gentle tints instead of loud neon. */
+  --glow-a: 0 0 18px rgba(64, 224, 208, 0.28);
+  --glow-b: 0 0 18px rgba(247, 42, 114, 0.30);
+  /* Material elevation (depth from shadow, not glow) */
+  --elev-1: 0 1px 2px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
+  --elev-2: 0 2px 6px rgba(0,0,0,0.45), 0 6px 16px rgba(0,0,0,0.35);
+  --elev-3: 0 8px 28px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.4);
+  /* Instrument Sans (headings/UI), Lexend (body), JetBrains Mono (code). */
+  --font: "Instrument Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --body: "Lexend", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  /* Calmer, flatter background — a whisper of brand tint, not neon washes. */
+  background:
+    radial-gradient(1200px 800px at 82% -12%, rgba(247, 42, 114, 0.05), transparent 62%),
+    radial-gradient(1100px 800px at 8% 112%, rgba(4, 78, 244, 0.05), transparent 62%),
+    var(--bg);
+  color: var(--txt);
+  font-family: var(--body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+body.scroll { overflow: auto; }
+
+a { color: var(--a); }
+
+/* animated grid backdrop */
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.5;
+  mask-image: radial-gradient(circle at 50% 40%, black, transparent 78%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.wrap { position: relative; z-index: 1; height: 100%; }
+
+/* ---------- generic ---------- */
+.title-font {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.28em 0.8em;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.badge.live { color: var(--red); border-color: rgba(255,77,94,0.4); }
+.badge.live::before {
+  content: "";
+  width: 0.6em; height: 0.6em; border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 10px var(--red);
+  animation: pulse 1.1s infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+.panel {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--elev-1);
+}
+
+/* ---------- Material ripple (attached globally by ui.js) ---------- */
+.ripple-host { position: relative; overflow: hidden; }
+.ripple-ink {
+  position: absolute; border-radius: 50%; transform: scale(0);
+  background: rgba(255, 255, 255, 0.3); pointer-events: none;
+  animation: rippleExpand 0.6s ease-out; z-index: 0;
+}
+@keyframes rippleExpand { to { transform: scale(2.4); opacity: 0; } }
+
+/* ---------- Material filled text field with floating label ---------- */
+.mfield { position: relative; display: block; }
+.mfield > input {
+  width: 100%; font-family: var(--body); font-size: 16px; color: var(--txt);
+  background: var(--panel-solid); border: 1px solid var(--line);
+  border-bottom: 2px solid rgba(255,255,255,0.22);
+  border-radius: 12px 12px 4px 4px; padding: 22px 14px 8px;
+  transition: border-color 0.15s, background 0.15s; -webkit-appearance: none;
+}
+.mfield > input:focus { outline: none; border-bottom-color: var(--blue); background: #1c1e2e; }
+.mfield > .mlabel {
+  position: absolute; left: 14px; top: 16px; color: var(--muted); font-size: 15px;
+  letter-spacing: 0.02em; pointer-events: none; transition: all 0.15s ease;
+}
+.mfield > input:focus + .mlabel,
+.mfield > input:not(:placeholder-shown) + .mlabel {
+  top: 7px; font-size: 11px; letter-spacing: 0.01em; color: var(--blue);
+}
+.mfield .req { color: var(--b); }
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+/* loading overlay + spinner (reusable) */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+  background: var(--bg);
+  transition: opacity 0.35s ease;
+}
+.loading-overlay.hide { opacity: 0; pointer-events: none; }
+.loading-overlay .lm { color: var(--muted); letter-spacing: 0.26em; text-transform: uppercase; font-size: 12px; }
+.spinner {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--a);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* pit logo mark */
+.logo {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+.logo .the { font-size: 0.42em; letter-spacing: 0.5em; color: var(--muted); display: block; }
+.logo .pit {
+  /* SignalWire brand gradient: blue → purple → fuchsia */
+  background: linear-gradient(92deg, var(--blue), var(--purple) 45%, var(--b));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 26px rgba(96, 27, 230, 0.35));
+}

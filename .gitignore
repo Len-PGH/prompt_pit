@@ -1,0 +1,20 @@
+# --- secrets & local config (NEVER commit) ---
+.env
+.env.local
+.env.*.local
+.claude/
+
+# --- dependencies ---
+node_modules/
+npm-debug.log*
+
+# --- runtime state / persisted show data ---
+state.json
+data/
+scratchpad/
+
+# --- os cruft ---
+.DS_Store
+Thumbs.db
+
+# Screenshots live in docs/screenshots/ and ARE committed — no blanket *.png ignore.

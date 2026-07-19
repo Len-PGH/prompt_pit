@@ -1,0 +1,4 @@
+signalwire-sdk
+httpx
+uvicorn
+python-multipart

@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Prompt Pit — Operator</title>
+<link rel="stylesheet" href="/app.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body.scroll { background: var(--bg); }
+  .op { max-width: 1180px; margin: 0 auto; padding: 16px 16px 80px; }
+  .op-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding: 8px 0 16px; position:sticky; top:0; z-index:20; background: linear-gradient(180deg, var(--bg) 70%, transparent); }
+  .op-head .logo { font-size: 26px; }
+  .status-dots { display:flex; gap:8px; align-items:center; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--red); box-shadow:0 0 8px var(--red); }
+  .dot.ok { background: var(--green); box-shadow:0 0 8px var(--green); }
+
+  .cols { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:14px; align-items:start; }
+  .card { padding:14px 16px; }
+  .card h3 { margin:0 0 12px; font-size:13px; letter-spacing:0.01em; text-transform:none; color:var(--muted); }
+  .card h3 .hint { float:right; text-transform:none; letter-spacing:0; color:var(--muted); font-weight:400; font-size:11px; }
+
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .row.tight { margin-bottom:6px; }
+  label.fld { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); flex:1; min-width:120px; }
+  input, textarea, select {
+    background:var(--panel-solid); border:1px solid var(--line); border-bottom:2px solid rgba(255,255,255,0.18);
+    color:var(--txt); border-radius:8px 8px 3px 3px; padding:10px 11px; font-family:var(--body); font-size:14px; width:100%;
+    transition:border-color .15s, background .15s;
+  }
+  input:focus, textarea:focus, select:focus { outline:none; border-bottom-color: var(--blue); background:#1c1e2e; }
+  textarea { font-family:var(--mono); font-size:12px; min-height:150px; resize:vertical; }
+
+  /* Material-style buttons: outlined default, filled variants, state-layer hover */
+  .btn {
+    border:1px solid var(--line); background:transparent; color:var(--txt);
+    padding:10px 14px; border-radius:8px; font-weight:600; font-size:14px;
+    transition: transform 0.08s, background 0.15s, box-shadow 0.15s, filter 0.15s; flex:1; min-width:64px;
+  }
+  .btn:hover { background:rgba(255,255,255,0.06); }
+  .btn:active { transform:translateY(1px); }
+  .btn.primary { background:#044EF4; color:#fff; border-color:transparent; box-shadow:var(--elev-1); }
+  .btn.primary:hover { background:#0342cf; box-shadow:var(--elev-2); }
+  .btn.b { background:#F72A72; color:#fff; border-color:transparent; box-shadow:var(--elev-1); }
+  .btn.b:hover { filter:brightness(1.08); box-shadow:var(--elev-2); }
+  .btn.gold { background:#FFD700; color:#241800; border-color:transparent; } /* warnings only */
+  .btn.green { background:#22c55e; color:#04240f; border-color:transparent; box-shadow:var(--elev-1); }
+  .btn.green:hover { filter:brightness(1.06); }
+  .btn.red { background:#ef4444; color:#fff; border-color:transparent; }
+  .btn.red:hover { filter:brightness(1.06); }
+  .btn.ghost { background:transparent; }
+  .btn.sel { outline:2px solid var(--b); outline-offset:1px; }
+  .btn.small { padding:7px 10px; font-size:13px; flex:0 0 auto; min-width:auto; }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+
+  .clockmini { font-family:var(--mono); font-size:40px; font-weight:700; text-align:center; margin:4px 0 12px; }
+  .clockmini.run { color: var(--green); }
+
+  .score-grid { display:grid; grid-template-columns: 1fr auto auto; gap:6px 10px; align-items:center; }
+  .score-grid .cl { font-size:13px; color:var(--muted); }
+  .score-grid .val { font-family:var(--mono); width:34px; text-align:center; }
+  .stepper { display:flex; gap:4px; }
+  .stepper button { width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:#222436; color:var(--txt); font-weight:700; }
+  .side-tag { font-size:11px; letter-spacing:0.01em; text-transform:none; font-weight:700; }
+  .side-tag.a { color:var(--a); } .side-tag.b { color:var(--b); }
+
+  .votes-live { display:flex; justify-content:space-between; font-family:var(--mono); font-size:22px; margin-top:6px; }
+  .votes-live .a { color:var(--a); } .votes-live .b { color:var(--b); }
+
+  .matchbtn { text-align:left; }
+  .matchbtn small { display:block; color:var(--muted); font-weight:400; font-size:11px; margin-top:2px; }
+
+  .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:80; padding:10px 18px; border-radius:10px; background:#2a2c40; border:1px solid var(--line); display:none; }
+  .toast.err { border-color:var(--red); color:#ffd7db; }
+  .toast.ok { border-color:var(--green); }
+
+  .chal-counts { display:flex; flex-direction:column; gap:3px; margin:0 0 10px; padding:8px 10px; border:1px solid var(--line); border-radius:9px; background:rgba(255,255,255,0.02); }
+  .chal-counts .cc-h { font-size:10px; letter-spacing:0.01em; text-transform:none; color:var(--muted); margin-bottom:3px; }
+  .ccrow { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--txt); }
+  .ccrow .bar { flex:1; height:6px; margin:0 8px; border-radius:999px; background:rgba(255,255,255,0.06); overflow:hidden; }
+  .ccrow .bar > i { display:block; height:100%; background:linear-gradient(90deg,#044EF4,var(--a)); border-radius:999px; }
+  .ccrow b { font-family:var(--mono); color:var(--a); min-width:18px; text-align:right; }
+
+  .roster { max-height:260px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+  .roster .empty { color:var(--muted); font-size:12px; padding:8px 2px; }
+  .rreg { display:grid; grid-template-columns:1fr auto; gap:4px 8px; align-items:center; border:1px solid var(--line); border-radius:9px; padding:7px 9px; background:rgba(255,255,255,0.02); }
+  .rreg .nm { font-weight:600; font-size:13px; }
+  .rreg .meta { font-family:var(--mono); font-size:11px; color:var(--muted); grid-column:1; }
+  .rreg .x { grid-row:1 / span 3; align-self:center; width:26px; height:26px; border-radius:7px; border:1px solid var(--line); background:#222436; color:var(--muted); cursor:pointer; }
+  .rreg .x:hover { border-color:var(--red); color:var(--red); }
+  .rreg .rtags { grid-column:1; display:flex; flex-wrap:wrap; gap:4px; margin-top:3px; }
+  .rreg .rtag { font-size:10px; color:var(--a); border:1px solid rgba(64,224,208,0.3); border-radius:999px; padding:1px 7px; }
+
+  .gate { max-width:400px; margin:14vh auto 0; text-align:center; padding:28px; }
+  .gate .logo { font-size:40px; margin-bottom:20px; }
+  #app { display:none; }
+  .keyline { font-family:var(--mono); font-size:12px; color:var(--muted); }
+
+  /* operator keys card */
+  .k-scopes { display:flex; flex-wrap:wrap; gap:6px; }
+  .k-scopes label { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--txt); border:1px solid var(--line); border-radius:999px; padding:5px 11px; cursor:pointer; text-transform:capitalize; user-select:none; }
+  .k-scopes label:hover { border-color:var(--a); }
+  .k-scopes input { width:auto; accent-color:var(--b); }
+  .k-secret { margin-top:10px; padding:10px; border:1px solid var(--b); border-radius:9px; background:rgba(247,42,114,0.08); }
+  .k-secret-val { font-family:var(--mono); font-size:14px; color:var(--txt); background:#0a0a14; padding:8px 10px; border-radius:7px; flex:1; word-break:break-all; }
+  .keys-list, .keys-audit { display:flex; flex-direction:column; gap:6px; }
+  .krow { display:grid; grid-template-columns:1fr auto; gap:3px 10px; border:1px solid var(--line); border-radius:9px; padding:9px 11px; background:rgba(255,255,255,0.02); }
+  .krow.revoked { opacity:0.5; }
+  .krow .knm { font-weight:600; font-size:13px; }
+  .krow .knm .master-tag { color:var(--b); font-size:10px; letter-spacing:0.01em; margin-left:6px; }
+  .krow .kmeta { grid-column:1; font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+  .krow .kscopes { grid-column:1; display:flex; flex-wrap:wrap; gap:4px; margin-top:2px; }
+  .krow .ks { font-size:9.5px; color:var(--a); border:1px solid rgba(4,78,244,0.35); border-radius:999px; padding:1px 7px; text-transform:capitalize; }
+  .krow .kstatus { font-size:10.5px; text-align:right; white-space:nowrap; }
+  .krow .kstatus .live { color:var(--green); } .krow .kstatus .idle { color:var(--muted); } .krow .kstatus .rev { color:var(--red); }
+  .krow .krevoke { grid-row:1 / span 3; align-self:center; width:26px; height:26px; border-radius:7px; border:1px solid var(--line); background:#222436; color:var(--muted); cursor:pointer; }
+  .krow .krevoke:hover { border-color:var(--red); color:var(--red); }
+  .keys-audit .arow { font-family:var(--mono); font-size:10.5px; color:var(--muted); border-bottom:1px solid var(--line); padding:4px 0; }
+  .keys-audit .arow b { color:var(--txt); }
+
+  /* google refinements */
+  .logo .pit{background:none;-webkit-text-fill-color:var(--txt);color:var(--txt);filter:none}
+  .logo .the{color:var(--muted)}
+  .badge{text-transform:none;letter-spacing:0.01em}
+</style>
+</head>
+<body class="scroll">
+<div class="grid-bg"></div>
+
+<!-- loading -->
+<div class="loading-overlay" id="loading">
+  <div class="logo" style="font-size:30px"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
+  <div class="spinner"></div>
+  <div class="lm">Connecting…</div>
+</div>
+
+<!-- key gate -->
+<div class="gate panel" id="gate">
+  <div class="logo"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
+  <h3 style="color:var(--muted); letter-spacing:0.01em; text-transform:none; font-size:13px;">Operator Access</h3>
+  <div class="row"><input id="key-input" type="password" placeholder="operator key" autocomplete="off" /></div>
+  <div class="row"><button class="btn primary" id="key-go">Enter Control Room</button></div>
+  <div class="keyline" id="gate-msg">Key is printed in the server console at startup.</div>
+</div>
+
+<div class="op" id="app">
+  <div class="op-head">
+    <div class="logo"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
+    <div class="status-dots">
+      <span class="badge" id="now-round">—</span>
+      <span class="badge" id="now-phase">—</span>
+      <span class="dot" id="dot-conn" title="connection"></span>
+      <span class="dot" id="dot-auth" title="operator auth"></span>
+    </div>
+  </div>
+
+  <div class="cols">
+
+    <!-- FLOW -->
+    <div class="panel card" data-scope="flow">
+      <h3>Show Flow</h3>
+      <div class="grid4">
+        <button class="btn small ph" data-ph="intro">Intro</button>
+        <button class="btn small ph" data-ph="compete">Compete</button>
+        <button class="btn small ph" data-ph="judging">Judging</button>
+        <button class="btn small ph" data-ph="results">Results</button>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost small ph" data-ph="idle">Standby / Reset view</button></div>
+    </div>
+
+    <!-- MATCH SELECT -->
+    <div class="panel card" data-scope="match">
+      <h3>Active Match</h3>
+      <div id="match-list" class="grid2"></div>
+    </div>
+
+    <!-- CHALLENGE -->
+    <div class="panel card" data-scope="match">
+      <h3>Challenge</h3>
+      <select id="challenge-sel"></select>
+      <div class="muted" id="challenge-brief" style="font-size:12px; margin-top:10px; line-height:1.4;"></div>
+    </div>
+
+    <!-- TIMER -->
+    <div class="panel card" data-scope="timer">
+      <h3>Timer</h3>
+      <div class="clockmini" id="op-clock">05:00</div>
+      <div class="grid4">
+        <button class="btn small" data-dur="300">5:00</button>
+        <button class="btn small" data-dur="600">10:00</button>
+        <button class="btn small" data-dur="180">3:00</button>
+        <button class="btn small" data-dur="60">1:00</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn green" id="t-start">▶ Start</button>
+        <button class="btn" id="t-pause">⏸ Pause</button>
+        <button class="btn ghost" id="t-reset">↺ Reset</button>
+      </div>
+      <div class="grid4">
+        <button class="btn small" data-adj="-30">−30s</button>
+        <button class="btn small" data-adj="-10">−10s</button>
+        <button class="btn small" data-adj="10">+10s</button>
+        <button class="btn small" data-adj="30">+30s</button>
+      </div>
+    </div>
+
+    <!-- VOTING -->
+    <div class="panel card" data-scope="voting">
+      <h3>Audience Voting</h3>
+      <div class="row">
+        <button class="btn primary" id="v-open">📣 Open Voting</button>
+        <button class="btn" id="v-close">Close</button>
+        <button class="btn ghost small" id="v-reset">Reset</button>
+      </div>
+      <div class="votes-live">
+        <span class="a" id="v-a">A: 0</span>
+        <span class="b" id="v-b">B: 0</span>
+      </div>
+      <div class="muted" style="font-size:12px; margin-top:10px;">Public URL (auto-set by tunnel)</div>
+      <div class="row tight"><input id="pub-url" placeholder="https://xxxx.trycloudflare.com" /></div>
+      <div class="row"><button class="btn small" id="pub-set">Set URL + QR</button><span class="keyline" id="pub-state"></span></div>
+      <div class="muted" style="font-size:12px; margin-top:10px;">Stage QR shows</div>
+      <div class="grid4">
+        <button class="btn small" id="qr-vote">Vote</button>
+        <button class="btn small" id="qr-register">Register</button>
+        <button class="btn small ghost" id="qr-off">Hide</button>
+      </div>
+    </div>
+
+    <!-- REGISTRATIONS + DRAW -->
+    <div class="panel card" data-scope="registration">
+      <h3>Registrations <span class="hint" id="reg-count">0 in pool</span></h3>
+      <div class="row">
+        <button class="btn b" id="draw-btn">🎲 Random Draw → 8</button>
+        <button class="btn ghost small" id="reg-clear">Clear pool</button>
+      </div>
+      <div class="muted" style="font-size:11px; margin:2px 0 8px;">Draw pulls 8 at random from the pool and animates on the Stage screen. Email is admin-only and never shown on stage.</div>
+      <div id="chal-counts" class="chal-counts"></div>
+      <div id="roster" class="roster"></div>
+    </div>
+
+    <!-- SCORING -->
+    <div class="panel card" data-scope="scoring">
+      <h3>Judge Scores <span class="hint">0–10 each</span></h3>
+      <div class="row" style="justify-content:space-between">
+        <span class="side-tag a" id="sc-a-name">Station A</span>
+        <span class="side-tag b" id="sc-b-name">Station B</span>
+      </div>
+      <div id="score-grid" class="score-grid"></div>
+      <div class="row" style="margin-top:10px"><button class="btn ghost small" id="sc-clear">Clear scores</button></div>
+    </div>
+
+    <!-- WINNER -->
+    <div class="panel card" data-scope="scoring">
+      <h3>Declare Winner <span class="hint">advances bracket</span></h3>
+      <div class="row"><button class="btn primary" id="w-auto">🏆 Declare Winner</button></div>
+      <div class="muted" style="font-size:11px; margin:2px 0 8px;">Auto-picks by judges' score + audience votes. On an exact tie, use a manual override.</div>
+      <div class="row">
+        <button class="btn small" id="w-a">A wins</button>
+        <button class="btn small" id="w-b">B wins</button>
+        <button class="btn ghost small" id="w-clear">Clear</button>
+      </div>
+    </div>
+
+    <!-- SABOTAGE -->
+    <div class="panel card" data-scope="sabotage">
+      <h3>Sabotage Wheel</h3>
+      <div class="row">
+        <button class="btn red" id="sab-spin">🎡 SPIN</button>
+        <button class="btn ghost small" id="sab-clear">Clear result</button>
+      </div>
+      <div class="muted" id="sab-last" style="font-size:12px; margin:6px 0 10px; min-height:1.2em;"></div>
+      <textarea id="sab-entries" placeholder="one requirement per line"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn small" id="sab-save">Save entries</button></div>
+    </div>
+
+    <!-- CONTESTANTS -->
+    <div class="panel card" data-scope="registration">
+      <h3>Contestants <span class="hint">seeds 1–8</span></h3>
+      <div id="contestants"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn small" id="c-save">Save names</button>
+        <button class="btn small ghost" id="c-reseed">Reseed bracket…</button>
+      </div>
+      <div class="hint" style="margin-top:6px">Save names fixes typos live — votes, scores &amp; bracket stay intact. Reseed rebuilds the bracket from scratch (clears everything).</div>
+    </div>
+
+    <!-- EVENT / DANGER -->
+    <div class="panel card" data-scope="event">
+      <h3>Event</h3>
+      <label class="mfield"><input id="ev-name" maxlength="40" placeholder=" " /><span class="mlabel">Event Name</span></label>
+      <label class="mfield" style="margin-top:10px"><input id="ev-sub" maxlength="80" placeholder=" " /><span class="mlabel">Subtitle</span></label>
+      <div class="row" style="margin-top:8px"><button class="btn small" id="ev-save">Save</button></div>
+      <hr style="border:none; border-top:1px solid var(--line); margin:14px 0" />
+      <div class="row"><button class="btn red" id="reset-event">⟲ Reset entire event</button></div>
+    </div>
+
+    <!-- OPERATOR KEYS (master / 'keys' scope only) -->
+    <div class="panel card" data-scope="keys" id="keys-card" style="grid-column:1 / -1;">
+      <h3>Operator Keys <span class="hint">scoped access · master only</span></h3>
+      <div class="keys-new">
+        <div class="row tight">
+          <input id="k-label" maxlength="40" placeholder="Key label (e.g. Judge Station 1)" style="flex:2;min-width:180px;" />
+        </div>
+        <div class="muted" style="font-size:11px;margin:2px 0 6px;">Scopes this key may control:</div>
+        <div id="k-scopes" class="k-scopes"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn primary small" id="k-create">Create key</button>
+          <span class="keyline" id="k-msg"></span>
+        </div>
+        <div id="k-secret" class="k-secret" style="display:none">
+          <div class="muted" style="font-size:11px;">New key — copy it now, it won't be shown again:</div>
+          <div class="row tight"><code id="k-secret-val" class="k-secret-val"></code><button class="btn small" id="k-copy">Copy</button></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 6px;">
+        <span class="muted" style="font-size:11px;letter-spacing:0.01em;text-transform:none;">Issued keys</span>
+        <button class="btn ghost small" id="ip-toggle" style="flex:0 0 auto;">👁 Show IPs</button>
+      </div>
+      <div id="keys-list" class="keys-list"></div>
+      <div class="muted" style="font-size:11px;letter-spacing:0.01em;text-transform:none;margin:14px 0 6px;">Audit log</div>
+      <div id="keys-audit" class="keys-audit"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/ui.js"></script>
+<script src="/operator.js"></script>
+</body>
+</html>

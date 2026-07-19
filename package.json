@@ -1,0 +1,18 @@
+{
+  "name": "the-prompt-pit",
+  "version": "1.0.0",
+  "description": "The Prompt Pit — live esports-style vibe-coding championship control system for ClueCon 2026",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1"
+  }
+}

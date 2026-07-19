@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Prompt Pit — Contestant Portal</title>
+<link rel="stylesheet" href="/app.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { overflow:auto; }
+  .r { max-width:760px; margin:0 auto; padding:22px 18px 60px; }
+  .r-head { text-align:center; padding:10px 0 6px; }
+  .r-head .logo { font-size:clamp(34px,9vw,52px); }
+  .r-head .sub { color:var(--muted); letter-spacing:0.01em; text-transform:none; font-size:12px; margin-top:8px; }
+  .tagline { text-align:center; color:var(--txt); font-size:clamp(15px,2.4vw,19px); margin:14px auto 4px; max-width:560px; line-height:1.5; }
+
+  section { margin-top:26px; }
+  .sec-title { display:flex; align-items:center; gap:10px; color:var(--b); letter-spacing:0.01em; text-transform:none; font-size:12px; font-weight:700; margin-bottom:12px; }
+  .sec-title::after { content:""; flex:1; height:1px; background:var(--line); }
+
+  .card2 { border:1px solid var(--line); background:var(--panel); border-radius:14px; padding:16px 18px; }
+
+  /* how it works */
+  .rounds { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .rbox { border:1px solid var(--line); border-radius:12px; padding:14px; text-align:center; background:rgba(255,255,255,0.02); }
+  .rbox .n { font-family:var(--mono); font-size:clamp(20px,4vw,30px); font-weight:700; }
+  .rbox.a .n { color:var(--a); } .rbox.b .n { color:var(--gold); } .rbox.c .n { color:var(--b); }
+  .rbox .l { color:var(--muted); font-size:11px; text-transform:none; letter-spacing:0.01em; margin-top:6px; }
+  .rbox .t { font-size:12px; margin-top:6px; color:var(--txt); }
+
+  /* checklists */
+  ul.check { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
+  ul.check li { position:relative; padding-left:1.7em; font-size:14px; line-height:1.5; }
+  ul.check li::before { content:"✓"; color:var(--green); font-weight:800; position:absolute; left:0; top:0; }
+  ul.check.provided li::before { content:"◆"; color:var(--a); }
+
+  /* challenge cards (selectable) */
+  .prompt-line { color:var(--muted); font-size:13px; margin-bottom:12px; }
+  .chs { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:560px){ .chs { grid-template-columns:1fr; } .rounds{ grid-template-columns:1fr; } }
+  .ch {
+    text-align:left; border:1.5px solid var(--line); background:rgba(255,255,255,0.02);
+    border-radius:14px; padding:14px; cursor:pointer; position:relative; transition:border-color .15s, background .15s, transform .08s;
+    color:var(--txt); font-family:var(--font);
+  }
+  .ch:hover { background:rgba(255,255,255,0.04); }
+  .ch:active { transform:translateY(1px); }
+  .ch .ttl { font-weight:800; text-transform:none; font-size:15px; letter-spacing:0.01em; padding-right:28px; }
+  .ch .tg { color:var(--muted); font-size:12.5px; margin-top:5px; line-height:1.4; }
+  .ch .tick { position:absolute; top:12px; right:12px; width:22px; height:22px; border-radius:6px; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:14px; color:transparent; }
+  .ch.on { border-color:var(--a); background:rgba(64,224,208,0.08); }
+  .ch.on .tick { background:var(--a); border-color:var(--a); color:#001018; }
+  .finale-note { margin-top:10px; font-size:12px; color:var(--muted); border-left:2px solid var(--b); padding:4px 0 4px 12px; }
+
+  /* judging chips */
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:12px; color:var(--txt); background:rgba(255,255,255,0.02); }
+
+  /* form */
+  form { display:flex; flex-direction:column; gap:14px; }
+  label.fld { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); letter-spacing:0.01em; text-transform:none; }
+  label.fld .req { color:var(--b); }
+  input {
+    background:#0a0a14; border:1px solid var(--line); color:var(--txt);
+    border-radius:12px; padding:14px; font-family:var(--font); font-size:16px; width:100%;
+  }
+  input:focus { outline:none; border-color:var(--a); box-shadow:0 0 0 2px rgba(64,224,208,0.2); }
+  .hint { font-size:11px; color:var(--muted); text-transform:none; letter-spacing:0; margin-top:-2px; }
+  .go { margin-top:4px; border:none; border-radius:12px; padding:17px; font-weight:700; font-size:18px; letter-spacing:0.01em; color:#fff; background:var(--blue); cursor:pointer; box-shadow:var(--elev-1); transition:transform .08s, box-shadow .15s, background .15s; }
+  .go:hover { background:#0342cf; box-shadow:var(--elev-2); }
+  .go:active { transform:translateY(1px); }
+  .go[disabled] { opacity:0.6; cursor:default; }
+  .count { text-align:center; color:var(--muted); font-size:12px; margin-top:14px; letter-spacing:0.01em; }
+  .count b { color:var(--txt); font-family:var(--mono); }
+  .privacy { text-align:center; color:var(--muted); font-size:11px; margin-top:8px; line-height:1.4; }
+  .msg { text-align:center; padding:10px 14px; border-radius:10px; display:none; font-size:14px; }
+  .msg.err { display:block; background:rgba(255,77,94,0.12); border:1px solid var(--red); color:#ffd7db; }
+
+  /* success */
+  #done { display:none; text-align:center; padding-top:4vh; }
+  #done .check { font-size:64px; filter:drop-shadow(0 0 20px var(--green)); }
+  #done h2 { font-size:30px; text-transform:none; letter-spacing:0.01em; margin:10px 0 6px; }
+  #done .who { color:var(--gold); font-weight:800; font-size:22px; }
+  #done .picks { margin:14px 0; }
+  #done p { color:var(--muted); line-height:1.5; }
+  #done .again { margin-top:16px; background:transparent; border:1px solid var(--line); color:var(--txt); border-radius:10px; padding:10px 16px; cursor:pointer; }
+
+  /* starter kits */
+  .kit { border:1px solid var(--line); border-radius:12px; margin-bottom:12px; overflow:hidden; background:rgba(255,255,255,0.02); }
+  .kit .kit-h { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 13px; cursor:pointer; }
+  .kit .kit-h .kt { font-weight:700; font-size:14px; }
+  .kit .kit-h .kt .star { color:var(--gold); margin-right:5px; }
+  .kit .kit-h .grp { display:flex; align-items:center; gap:8px; }
+  .kit .copy { border:1px solid var(--line); background:#222436; color:var(--txt); border-radius:8px; padding:6px 12px; font-size:12px; cursor:pointer; font-family:var(--font); }
+  .kit .copy.ok { border-color:var(--green); color:var(--green); }
+  .kit .chev { color:var(--muted); font-size:12px; transition:transform .15s; }
+  .kit.open .chev { transform:rotate(90deg); }
+  .kit pre { margin:0; max-height:0; overflow:auto; transition:max-height .2s ease; background:#0e0e18; }
+  .kit.open pre { max-height:420px; }
+  .kit pre code { display:block; padding:13px; font-family:var(--mono); font-size:11.5px; line-height:1.5; color:#cdd3ff; white-space:pre; }
+
+  /* google refinements */
+  .logo .pit{background:none;-webkit-text-fill-color:var(--txt);color:var(--txt);filter:none}
+  .logo .the{color:var(--muted)}
+  .sec-title{color:var(--muted)}
+  #done .who{color:var(--txt)}
+  .rbox.a .n,.rbox.b .n,.rbox.c .n{color:var(--txt)}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="r">
+  <div class="r-head">
+    <div class="logo"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
+    <div class="sub" id="r-sub">ClueCon 2026 · Vibe Coding Championship</div>
+  </div>
+
+  <div id="portal">
+    <p class="tagline">Think fast. Prompt faster. A live, game-show-style coding
+      battle where developers go head-to-head building real projects under
+      pressure using their AI copilot of choice.</p>
+
+    <!-- HOW IT WORKS -->
+    <section>
+      <div class="sec-title">How it works</div>
+      <div class="rounds">
+        <div class="rbox a"><div class="n">8→4</div><div class="l">Round 1</div><div class="t">4 heats · 5 min each</div></div>
+        <div class="rbox b"><div class="n">4→2</div><div class="l">Semi-Finals</div><div class="t">2 heats · 5 min each</div></div>
+        <div class="rbox c"><div class="n">2→1</div><div class="l">Grand Finale</div><div class="t">Head-to-head · 10 min</div></div>
+      </div>
+      <p class="hint" style="margin-top:10px">Single-elimination bracket. Win your heat, advance. Lose, you're deprecated. Audience votes live from their phones.</p>
+    </section>
+
+    <!-- WHAT TO BRING -->
+    <section>
+      <div class="sec-title">What you need to compete</div>
+      <div class="card2">
+        <p class="hint" style="margin-top:0;font-size:13px;color:var(--txt)">Bring your own / set up in advance:</p>
+        <ul class="check">
+          <li>Your <b>AI coding assistant</b> of choice (Claude Code, etc.) — logged in and ready.</li>
+          <li>Your <b>laptop + charger</b>, and a <b>GitHub account</b>.</li>
+          <li>A <b>SignalWire Space</b> — this is <b>not</b> provided. <a href="https://signalwire.com/signup" target="_blank" rel="noopener noreferrer">Sign up free</a> and have a phone number + API credentials ready <b>before you arrive</b>.</li>
+          <li>A backup plan. Prompts fail. Recover with style.</li>
+        </ul>
+        <p class="hint" style="margin:14px 0 0;font-size:13px;color:var(--txt)">Provided:</p>
+        <ul class="check provided">
+          <li>Copy-ready <b>starter scaffolds</b> for each challenge (shown after you register) so the clock is spent building, not plumbing.</li>
+          <li>The <b>challenge briefs</b> and <b>judging criteria</b> up front — right here on this page.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- CHALLENGES (selectable) -->
+    <section>
+      <div class="sec-title">The Challenges</div>
+      <p class="prompt-line">Pick the challenge(s) you want to take on. This helps us seed the bracket — you can choose more than one.</p>
+      <div class="chs" id="challenges"></div>
+      <div class="finale-note" id="finale-note"></div>
+    </section>
+
+    <!-- JUDGING -->
+    <section>
+      <div class="sec-title">How you're judged</div>
+      <div class="chips" id="criteria"></div>
+    </section>
+
+    <!-- REGISTER -->
+    <section>
+      <div class="sec-title">Enter the Pit</div>
+      <form id="reg-form" autocomplete="off">
+        <label class="mfield">
+          <input id="f-name" maxlength="40" placeholder=" " required />
+          <span class="mlabel">Team or Player Name <span class="req">*</span></span>
+        </label>
+        <div class="hint">e.g. Clue Crew, or Len G.</div>
+        <label class="mfield">
+          <input id="f-github" maxlength="60" placeholder=" " required />
+          <span class="mlabel">GitHub Username <span class="req">*</span></span>
+        </label>
+        <div class="hint">Shown on the stage card if you're drawn.</div>
+        <label class="mfield">
+          <input id="f-email" type="email" maxlength="200" inputmode="email" placeholder=" " required />
+          <span class="mlabel">Contact Email <span class="req">*</span></span>
+        </label>
+        <div class="hint">Admin use only (check-in / prizes). Never shown on screen.</div>
+        <div class="msg" id="msg"></div>
+        <button class="go" id="go" type="submit">Enter the Pit</button>
+      </form>
+      <div class="count"><b id="count">0</b> registered so far</div>
+      <div class="privacy">Your email is stored privately for the organizers and is never displayed on the stage or voting screens.</div>
+    </section>
+  </div>
+
+  <div id="done">
+    <div class="check">✓</div>
+    <h2>You're in the draw!</h2>
+    <div class="who" id="done-who"></div>
+    <div class="picks chips" id="done-picks"></div>
+    <p>Keep an eye on the main stage — if your name gets pulled, you're up.</p>
+    <button class="again" id="edit">Update my info &amp; picks</button>
+
+    <section style="text-align:left; margin-top:32px;">
+      <div class="sec-title">Starter Kits — build off these</div>
+      <p class="hint" style="text-align:left; margin-top:0;">Working boilerplate for each challenge. Copy one, deploy it to your station, and start iterating. Your picks are marked ★.</p>
+      <div id="starters"></div>
+    </section>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/ui.js"></script>
+<script src="/register.js"></script>
+</body>
+</html>

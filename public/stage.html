@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Prompt Pit — Stage</title>
+<link rel="stylesheet" href="/app.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  .stage {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100%;
+    padding: clamp(14px, 2vw, 30px);
+    gap: clamp(12px, 1.6vw, 22px);
+  }
+
+  /* top bar */
+  .top {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+  }
+  .top .logo { font-size: clamp(22px, 3.4vw, 46px); }
+  .top .right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+  .clock {
+    text-align: center;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: clamp(52px, 12vw, 168px);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    background: linear-gradient(180deg, #fff, #b7c0ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    transition: filter 0.2s;
+  }
+  .clock.run { filter: drop-shadow(0 0 40px rgba(96,27,230,0.45)); }
+  .clock.warn { background: linear-gradient(180deg,#ffe08a,#ffb84d); -webkit-background-clip:text; background-clip:text; }
+  .clock.danger {
+    background: linear-gradient(180deg,#ff8a8a,#ff3d5e);
+    -webkit-background-clip:text; background-clip:text;
+    animation: shake 0.5s infinite;
+  }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+  .clock-label { text-align:center; color: var(--muted); letter-spacing:0.5em; font-size: clamp(10px,1.1vw,15px); text-transform:uppercase; margin-top:-6px; }
+
+  /* matchup — two equal cards with the VS absolutely centered in the gap */
+  .match { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(56px,8vw,150px); align-items: stretch; min-height: 0; position: relative; }
+
+  /* phase banner (Show Flow) */
+  .phase-banner {
+    position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    z-index: 5; display: none; align-items: center; gap: 0.5em;
+    padding: 0.4em 1.4em; border-radius: 999px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.24em; font-size: clamp(13px,1.6vw,22px); white-space: nowrap;
+    border: 1px solid var(--line); background: rgba(10,10,20,0.85); backdrop-filter: blur(6px);
+  }
+  .phase-banner.show { display: inline-flex; }
+  .phase-banner.intro { color: var(--gold); border-color: rgba(255,211,77,0.5); box-shadow: 0 0 30px rgba(255,211,77,0.25); }
+  .phase-banner.compete { color: var(--red); border-color: rgba(255,77,94,0.5); box-shadow: 0 0 30px rgba(255,77,94,0.25); }
+  .phase-banner.compete::before { content:""; width:0.5em; height:0.5em; border-radius:50%; background:var(--red); box-shadow:0 0 10px var(--red); animation: pulse 1.1s infinite; }
+  .phase-banner.judging { color: #c9a6ff; border-color: rgba(185,140,255,0.5); box-shadow: 0 0 30px rgba(185,140,255,0.25); }
+  .phase-banner.results { color: var(--green); border-color: rgba(61,255,158,0.5); box-shadow: 0 0 30px rgba(61,255,158,0.25); }
+
+  /* hide-until-reveal for votes / judge scores */
+  .veil { visibility: hidden; }
+  .fighter {
+    position: relative;
+    padding: clamp(16px,2vw,34px);
+    border-radius: 22px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--bg2);
+    box-shadow: var(--elev-2);
+    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+  }
+  .fighter.a { border-color: rgba(64,224,208,0.28); }
+  .fighter.b { border-color: rgba(247,42,114,0.28); }
+  .fighter .corner { font-size: clamp(11px,1.3vw,16px); letter-spacing:0.4em; text-transform:uppercase; font-weight:700; }
+  .fighter.a .corner { color: var(--a); text-align:left; }
+  .fighter.b .corner { color: var(--b); text-align:right; }
+
+  /* centered middle block: monogram + name + handle + stats */
+  .fighter-mid { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap: clamp(4px,0.8vh,10px); min-height:0; }
+  .monogram {
+    width: clamp(74px,8.5vw,140px); height: clamp(74px,8.5vw,140px); border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size: clamp(30px,4vw,62px); letter-spacing:0.02em;
+    background: rgba(255,255,255,0.03); margin-bottom: clamp(4px,1vh,14px);
+  }
+  .fighter.a .monogram { color: var(--a); border:2px solid rgba(64,224,208,0.5); box-shadow: var(--glow-a); }
+  .fighter.b .monogram { color: var(--b); border:2px solid rgba(247,42,114,0.5); box-shadow: var(--glow-b); }
+  .fighter .name {
+    font-weight: 800; text-transform: uppercase; letter-spacing: 0.01em;
+    font-size: clamp(24px, 3.4vw, 60px); line-height: 1.02; margin: 0;
+    word-break: break-word;
+  }
+  .fighter .gh { font-family: var(--mono); color: var(--muted); font-size: clamp(11px,1.2vw,17px); }
+  .fighter .gh:empty { display:none; }
+  .fighter .gh::before { content:"⌥ "; opacity:0.6; }
+  .fstats { display:flex; gap: clamp(6px,0.8vw,14px); flex-wrap:wrap; justify-content:center; margin-top: clamp(2px,0.6vh,8px); }
+  .fstat { font-family: var(--mono); font-size: clamp(10px,1.1vw,16px); letter-spacing:0.1em; text-transform:uppercase; color: var(--muted); border:1px solid var(--line); border-radius:999px; padding: 0.22em 0.85em; }
+  .fstat:empty { display:none; }
+  .fighter.win { transform: translateY(-4px); }
+  .fighter.win { box-shadow: var(--elev-3); }
+  .fighter.win.a { border-color: var(--a); box-shadow: var(--elev-3), var(--glow-a); }
+  .fighter.win.b { border-color: var(--b); box-shadow: var(--elev-3), var(--glow-b); }
+  .crown { position:absolute; top:14px; right:18px; font-size: clamp(28px,3vw,48px); filter: drop-shadow(0 0 12px var(--gold)); display:none; }
+  .fighter.win .crown { display:block; animation: pop 0.5s; }
+  @keyframes pop { 0%{transform:scale(0) rotate(-20deg)} 70%{transform:scale(1.3)} 100%{transform:scale(1)} }
+
+  /* winner / loser steady state */
+  .winner-badge {
+    position:absolute; top: clamp(10px,1.4vw,20px); left:50%; transform:translateX(-50%) scale(0);
+    z-index:6; font-weight:800; text-transform:uppercase; letter-spacing:0.2em;
+    font-size: clamp(13px,1.5vw,22px); padding:0.35em 1.2em; border-radius:999px; white-space:nowrap;
+    color:#0a0a12;
+  }
+  .fighter.a .winner-badge { background:linear-gradient(92deg,#40E0D0,#7ff0e6); box-shadow:var(--glow-a); }
+  .fighter.b .winner-badge { background:linear-gradient(92deg,#F72A72,#ff6da0); box-shadow:var(--glow-b); color:#fff; }
+  .fighter.win .winner-badge { animation: badgePop 0.5s 0.15s forwards; }
+  @keyframes badgePop { 0%{transform:translateX(-50%) scale(0)} 70%{transform:translateX(-50%) scale(1.15)} 100%{transform:translateX(-50%) scale(1)} }
+  .fighter.win { transform: translateY(-6px) scale(1.02); }
+  .fighter.win .monogram { animation: monoPulse 1.4s ease-in-out infinite; }
+  @keyframes monoPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  .fighter.lose { opacity:0.4; filter: grayscale(0.75); transform: scale(0.98); }
+  .fighter.lose .crown, .fighter.lose .winner-badge { display:none; }
+
+  .votebox { margin-top: auto; text-align: center; }
+  .votecount { font-family: var(--mono); font-weight: 700; font-size: clamp(30px,5vw,80px); line-height: 1; }
+  .fighter.a .votecount { color: var(--a); }
+  .fighter.b .votecount { color: var(--b); }
+  .votecount small { font-size: 0.32em; color: var(--muted); letter-spacing:0.2em; margin-left:0.4em; }
+  .bar { height: clamp(10px,1.2vw,18px); border-radius: 999px; background: rgba(255,255,255,0.08); overflow:hidden; margin-top: 10px; }
+  .bar > span { display:block; height:100%; width:0%; border-radius:999px; transition: width 0.6s cubic-bezier(.2,.8,.2,1); }
+  .fighter.a .bar > span { background: linear-gradient(90deg,#044EF4,var(--a)); box-shadow: var(--glow-a); }
+  .fighter.b .bar > span { background: linear-gradient(90deg,#601BE6,var(--b)); box-shadow: var(--glow-b); }
+
+  .score-total { display:flex; align-items:baseline; justify-content:center; gap:0.4em; margin-top: 14px; color: var(--muted); }
+  .score-total b { font-family: var(--mono); font-size: clamp(18px,2vw,30px); color: var(--txt); }
+
+  .vs {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    z-index: 4;
+    font-weight: 900; font-style: italic;
+    font-size: clamp(28px,5vw,90px);
+    background: linear-gradient(180deg,#fff,#6e9eff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter: drop-shadow(0 0 20px rgba(96,27,230,0.5));
+    pointer-events: none;
+  }
+
+  /* bottom row */
+  .bottom { display:grid; grid-template-columns: 1.4fr 1fr; gap: clamp(10px,1.4vw,20px); min-height:0; }
+  .challenge-card { padding: clamp(14px,1.6vw,24px); }
+  .challenge-card .kicker { color: var(--b); letter-spacing:0.3em; text-transform:uppercase; font-size: clamp(10px,1vw,14px); font-weight:700; }
+  .challenge-card h2 { margin: 0.2em 0 0.15em; font-size: clamp(20px,2.6vw,40px); text-transform:uppercase; letter-spacing:0.01em; }
+  .challenge-card .tag { color: var(--txt); font-size: clamp(13px,1.4vw,20px); opacity:0.9; }
+  .challenge-card .brief { color: var(--muted); font-size: clamp(12px,1.15vw,16px); margin-top:0.5em; line-height:1.4; }
+
+  /* bracket mini */
+  .bracket { padding: clamp(12px,1.4vw,20px); display:flex; flex-direction:column; }
+  .bracket h3 { margin:0 0 0.5em; letter-spacing:0.3em; text-transform:uppercase; font-size: clamp(11px,1.1vw,15px); color:var(--muted); }
+  .bcols { display:grid; grid-template-columns: repeat(3,1fr); gap: 8px; flex:1; }
+  .bcol { display:flex; flex-direction:column; justify-content:space-around; gap:6px; }
+  .bcol .lbl { font-size: clamp(8px,0.8vw,11px); letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; margin-bottom:2px; }
+  .bmatch { border:1px solid var(--line); border-radius:9px; padding:5px 8px; background:rgba(255,255,255,0.02); font-size: clamp(10px,1vw,14px); }
+  .bmatch.cur { border-color: var(--b); box-shadow: 0 0 14px rgba(247,42,114,0.3); }
+  .bteam { display:flex; justify-content:space-between; gap:6px; padding:1px 0; color:var(--muted); }
+  .bteam.won { color: var(--txt); font-weight:700; }
+  .bteam .s { font-family:var(--mono); }
+  .bteam.a.won { color: var(--a); }
+  .bteam.b.won { color: var(--b); }
+
+  /* standby holding screen */
+  #standby {
+    position: fixed; inset: 0; z-index: 44; display: none;
+    align-items: center; justify-content: center; text-align: center;
+    background:
+      radial-gradient(1000px 600px at 20% 15%, rgba(64,224,208,0.10), transparent 60%),
+      radial-gradient(1000px 600px at 80% 85%, rgba(247,42,114,0.10), transparent 60%),
+      var(--bg);
+  }
+  #standby.show { display: flex; }
+  #standby .sb-sub { color: var(--muted); letter-spacing: 0.24em; text-transform: uppercase; font-size: clamp(12px,1.4vw,18px); margin-top: 18px; }
+  #standby .sb-tag { margin-top: clamp(20px,4vh,50px); font-size: clamp(20px,2.6vw,38px); font-weight: 700; color: var(--txt); }
+  #standby .sb-next { margin-top: 14px; color: var(--gold); letter-spacing: 0.14em; text-transform: uppercase; font-size: clamp(12px,1.4vw,18px); }
+  #standby .sb-next:empty { display: none; }
+
+  /* pre-show registration board */
+  #preshow {
+    position: fixed; inset: 0; z-index: 45; display: none;
+    flex-direction: column; padding: clamp(24px,4vw,64px);
+    background:
+      radial-gradient(1000px 600px at 15% 10%, rgba(64,224,208,0.10), transparent 60%),
+      radial-gradient(1000px 600px at 85% 90%, rgba(247,42,114,0.10), transparent 60%),
+      var(--bg);
+  }
+  #preshow.show { display: flex; }
+  .ps-head { display: flex; align-items: center; justify-content: space-between; }
+  .ps-body { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: clamp(30px,5vw,90px); align-items: center; }
+  @media (max-width: 900px) { .ps-body { grid-template-columns: 1fr; } }
+  .ps-qr { text-align: center; }
+  .ps-qr img { width: clamp(220px,26vw,420px); height: auto; background: #fff; padding: 14px; border-radius: 20px; box-shadow: 0 0 60px rgba(64,224,208,0.35); }
+  .ps-scan { margin-top: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; font-size: clamp(20px,2.4vw,34px); color: var(--a); }
+  .ps-url { margin-top: 8px; color: var(--muted); font-size: clamp(12px,1.2vw,18px); word-break: break-all; }
+  .ps-count { line-height: 0.9; margin-bottom: clamp(18px,3vh,44px); }
+  .ps-count span {
+    font-family: var(--mono); font-weight: 700; font-size: clamp(70px,13vw,190px);
+    background: linear-gradient(180deg,#fff,#6e9eff); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 40px rgba(96,27,230,0.4));
+  }
+  .ps-count small { display: block; color: var(--muted); text-transform: uppercase; letter-spacing: 0.24em; font-size: clamp(12px,1.4vw,20px); margin-top: 10px; }
+  .ps-bars-h { color: var(--gold); text-transform: uppercase; letter-spacing: 0.2em; font-size: clamp(11px,1.2vw,16px); font-weight: 700; margin-bottom: 12px; }
+  .ps-bars { display: flex; flex-direction: column; gap: clamp(8px,1.4vh,16px); }
+  .psrow { display: grid; grid-template-columns: minmax(240px, 40%) 1fr auto; gap: 14px 18px; align-items: center; }
+  .psrow .lbl { font-weight: 700; text-transform: uppercase; font-size: clamp(13px,1.4vw,20px); line-height: 1.2; white-space: normal; overflow-wrap: anywhere; }
+  .psrow .track { height: clamp(14px,1.8vw,26px); border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+  .psrow .track > i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg,#044EF4,var(--a)); box-shadow: var(--glow-a); transition: width 0.6s cubic-bezier(.2,.8,.2,1); }
+  .psrow .num { font-family: var(--mono); font-weight: 700; font-size: clamp(18px,2.2vw,34px); color: var(--a); min-width: 1.4em; text-align: right; }
+
+  /* voting overlay QR */
+  .qr-float {
+    position: fixed; right: clamp(16px,2vw,34px); bottom: clamp(16px,2vw,34px);
+    z-index: 40; display:none; align-items:center; gap: 18px;
+    padding: 18px 22px; border-radius: 20px;
+    background: rgba(10,10,20,0.92); border:1px solid var(--gold);
+    box-shadow: 0 0 50px rgba(255,211,77,0.35);
+    animation: rise 0.4s;
+  }
+  .qr-float.show { display:flex; }
+  @keyframes rise { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .qr-float img { width: clamp(120px,12vw,190px); height:auto; border-radius:10px; background:#fff; padding:6px; }
+  .qr-float .call { max-width: 260px; }
+  .qr-float .call .big { font-size: clamp(22px,2.4vw,38px); font-weight:800; text-transform:uppercase; color: var(--gold); line-height:1; }
+  .qr-float .call .sub { color: var(--muted); margin-top:6px; font-size: clamp(12px,1.1vw,16px); }
+  .qr-float .call .url { font-family:var(--mono); font-size: clamp(11px,1vw,14px); color:var(--txt); margin-top:8px; word-break:break-all; }
+
+  /* sabotage overlay */
+  .overlay {
+    position: fixed; inset:0; z-index: 60; display:none;
+    align-items:center; justify-content:center; flex-direction:column;
+    background: radial-gradient(circle at 50% 40%, rgba(30,10,40,0.96), rgba(5,5,12,0.98));
+    backdrop-filter: blur(4px);
+  }
+  .overlay.show { display:flex; }
+  .sab-title { color: var(--b); letter-spacing:0.4em; text-transform:uppercase; font-weight:800; font-size: clamp(18px,2.4vw,34px); margin-bottom: 0.6em; }
+  .reel {
+    width: min(88vw, 1100px); height: clamp(120px,18vh,220px); overflow:hidden;
+    border-radius: 22px; border:2px solid var(--b);
+    background: rgba(0,0,0,0.5); box-shadow: var(--glow-b);
+    display:flex; align-items:center; justify-content:center; position:relative;
+    padding: 0 40px;
+  }
+  .reel .slot {
+    font-weight:800; text-transform:uppercase; text-align:center;
+    font-size: clamp(22px,3.4vw,56px); line-height:1.05;
+  }
+  .reel.landed .slot { animation: land 0.5s; color: var(--gold); }
+  @keyframes land { 0%{transform:scale(0.8);opacity:0.4} 60%{transform:scale(1.12)} 100%{transform:scale(1)} }
+  .reel::before, .reel::after { content:""; position:absolute; left:0; right:0; height:40px; pointer-events:none; }
+  .reel::before { top:0; background: linear-gradient(180deg, rgba(0,0,0,0.7), transparent); }
+  .reel::after { bottom:0; background: linear-gradient(0deg, rgba(0,0,0,0.7), transparent); }
+  .sab-hint { color: var(--muted); margin-top: 1.2em; letter-spacing:0.3em; text-transform:uppercase; font-size: clamp(11px,1.2vw,16px); }
+
+  /* draw overlay */
+  #draw .reel { border-color: var(--gold); box-shadow: 0 0 40px rgba(255,211,77,0.45); }
+  #draw .reel.landed .slot { color: var(--gold); }
+  .draw-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width:min(90vw,1100px); margin-top: 28px; }
+  .draw-cell {
+    border:1px solid var(--line); border-radius:14px; padding:14px 12px; text-align:center;
+    background: rgba(255,255,255,0.03); opacity:0; transform: translateY(12px);
+    animation: reveal 0.45s forwards;
+  }
+  @keyframes reveal { to { opacity:1; transform:translateY(0); } }
+  .draw-cell .seed { font-family:var(--mono); color:var(--gold); font-size: clamp(11px,1.1vw,14px); letter-spacing:0.15em; }
+  .draw-cell .nm { font-weight:800; text-transform:uppercase; font-size: clamp(15px,1.7vw,24px); margin-top:4px; word-break:break-word; }
+  .draw-cell .gh { font-family:var(--mono); color:var(--muted); font-size: clamp(10px,1vw,13px); margin-top:3px; }
+  .draw-cell .gh:empty { display:none; }
+
+  /* round winner flash */
+  #winflash { background: radial-gradient(circle at 50% 45%, rgba(12,12,22,0.92), rgba(6,6,14,0.97)); }
+  #winflash .wf-label { color: var(--muted); letter-spacing:0.5em; text-transform:uppercase; font-weight:700; font-size: clamp(14px,1.8vw,26px); }
+  #winflash .wf-name {
+    font-weight:900; text-transform:uppercase; line-height:1; text-align:center; margin:0.12em 0 0.15em;
+    font-size: clamp(46px,10vw,150px); padding:0 4vw;
+    background: linear-gradient(180deg,#fff,#fff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation: wfIn 0.5s cubic-bezier(.2,.9,.2,1);
+  }
+  #winflash.a .wf-name { background:linear-gradient(180deg,#eafffb,#40E0D0); -webkit-background-clip:text; background-clip:text; filter:drop-shadow(0 0 40px rgba(64,224,208,0.5)); }
+  #winflash.b .wf-name { background:linear-gradient(180deg,#ffe6ef,#F72A72); -webkit-background-clip:text; background-clip:text; filter:drop-shadow(0 0 40px rgba(247,42,114,0.5)); }
+  @keyframes wfIn { 0%{transform:scale(0.6);opacity:0} 60%{transform:scale(1.06)} 100%{transform:scale(1);opacity:1} }
+  #winflash .wf-sub { color: var(--muted); letter-spacing:0.3em; text-transform:uppercase; font-size: clamp(11px,1.3vw,18px); }
+  .wf-confetti { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+  .wf-confetti i { position:absolute; top:-20px; width:10px; height:16px; opacity:0.95; animation: fall linear forwards; }
+
+  /* champion overlay */
+  #champ .crown-big { font-size: clamp(60px,10vw,150px); filter: drop-shadow(0 0 40px var(--gold)); animation: pop 0.7s; }
+  #champ .champ-label { color: var(--gold); letter-spacing:0.5em; text-transform:uppercase; font-weight:700; font-size: clamp(16px,2vw,28px); }
+  #champ .champ-name {
+    font-weight:900; text-transform:uppercase; font-size: clamp(40px,9vw,140px); line-height:1;
+    background: linear-gradient(92deg, var(--a), var(--gold) 50%, var(--b));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter: drop-shadow(0 0 40px rgba(255,211,77,0.4)); text-align:center; margin: 0.15em 0;
+  }
+  .confetti { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:1; }
+  .confetti i { position:absolute; top:-20px; width:10px; height:16px; opacity:0.9; animation: fall linear infinite; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+  .disconnected { position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:99; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<!-- loading -->
+<div class="loading-overlay" id="loading">
+  <div class="logo" style="font-size:38px"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
+  <div class="spinner"></div>
+  <div class="lm">Connecting…</div>
+</div>
+
+<div class="wrap">
+  <div class="stage">
+    <!-- TOP -->
+    <div class="top">
+      <div class="logo"><span class="the" id="ev-the">The</span><span class="pit" id="ev-name">Prompt Pit</span></div>
+      <div>
+        <div class="clock" id="clock">05:00</div>
+        <div class="clock-label" id="round-label">Round 1 · Match 1</div>
+      </div>
+      <div class="right">
+        <span class="badge live" id="phase-badge">Standby</span>
+        <span class="badge" id="sub-badge">ClueCon 2026</span>
+      </div>
+    </div>
+
+    <!-- MATCH -->
+    <div class="match">
+      <div class="phase-banner" id="phase-banner"><span id="phase-banner-txt"></span></div>
+
+      <div class="fighter a" id="fa">
+        <div class="crown">👑</div>
+        <div class="winner-badge">★ Winner</div>
+        <div class="corner">◤ Station A</div>
+        <div class="fighter-mid">
+          <div class="monogram" id="fa-mono">—</div>
+          <div class="name" id="fa-name">—</div>
+          <div class="gh" id="fa-gh"></div>
+          <div class="fstats">
+            <span class="fstat" id="fa-seed"></span>
+            <span class="fstat" id="fa-wins"></span>
+          </div>
+        </div>
+        <div class="votebox">
+          <div class="score-total">Judges <b id="fa-score">0</b> / 60</div>
+          <div class="votecount" id="fa-votes">0<small>votes</small></div>
+          <div class="bar"><span id="fa-bar"></span></div>
+        </div>
+      </div>
+
+      <div class="fighter b" id="fb">
+        <div class="crown">👑</div>
+        <div class="winner-badge">★ Winner</div>
+        <div class="corner">Station B ◥</div>
+        <div class="fighter-mid">
+          <div class="monogram" id="fb-mono">—</div>
+          <div class="name" id="fb-name">—</div>
+          <div class="gh" id="fb-gh"></div>
+          <div class="fstats">
+            <span class="fstat" id="fb-seed"></span>
+            <span class="fstat" id="fb-wins"></span>
+          </div>
+        </div>
+        <div class="votebox">
+          <div class="score-total">Judges <b id="fb-score">0</b> / 60</div>
+          <div class="votecount" id="fb-votes">0<small>votes</small></div>
+          <div class="bar"><span id="fb-bar"></span></div>
+        </div>
+      </div>
+
+      <div class="vs">VS</div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="bottom">
+      <div class="panel challenge-card">
+        <div class="kicker" id="ch-kicker">Current Challenge</div>
+        <h2 id="ch-title">—</h2>
+        <div class="tag" id="ch-tag"></div>
+        <div class="brief" id="ch-brief"></div>
+      </div>
+      <div class="panel bracket">
+        <h3>Bracket</h3>
+        <div class="bcols" id="bracket"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- standby holding screen -->
+<div id="standby">
+  <div class="sb-inner">
+    <div class="logo" style="font-size:clamp(44px,8vw,96px)"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
+    <div class="sb-sub" id="sb-sub">ClueCon 2026 · Vibe Coding Championship</div>
+    <div class="sb-tag">The battles begin shortly…</div>
+    <div class="sb-next" id="sb-next"></div>
+  </div>
+</div>
+
+<!-- pre-show registration board -->
+<div id="preshow">
+  <div class="ps-head">
+    <div class="logo" style="font-size:clamp(26px,4vw,52px)"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
+    <span class="badge live">Registration Open</span>
+  </div>
+  <div class="ps-body">
+    <div class="ps-qr">
+      <img id="ps-qr-img" alt="Registration QR code" />
+      <div class="ps-scan">Scan to enter</div>
+      <div class="ps-url mono" id="ps-url"></div>
+    </div>
+    <div class="ps-stats">
+      <div class="ps-count"><span id="ps-count">0</span><small>contestants in the pit</small></div>
+      <div class="ps-bars-h">Which challenges they want</div>
+      <div class="ps-bars" id="ps-bars"></div>
+    </div>
+  </div>
+</div>
+
+<!-- QR voting float -->
+<div class="qr-float" id="qr-float">
+  <img id="qr-img" alt="Vote QR code" />
+  <div class="call">
+    <div class="big" id="qr-big">Vote Now!</div>
+    <div class="sub" id="qr-sub">Scan to pick your winner</div>
+    <div class="url" id="qr-url"></div>
+  </div>
+</div>
+
+<!-- sabotage overlay -->
+<div class="overlay" id="sab">
+  <div class="sab-title">⚡ Audience Sabotage ⚡</div>
+  <div class="reel" id="reel"><div class="slot" id="reel-slot">—</div></div>
+  <div class="sab-hint" id="sab-hint">Spinning the wheel of chaos…</div>
+</div>
+
+<!-- random draw overlay -->
+<div class="overlay" id="draw">
+  <div class="sab-title" style="color:var(--gold)">🎲 The Draw 🎲</div>
+  <div class="reel" id="draw-reel"><div class="slot" id="draw-slot">—</div></div>
+  <div class="draw-grid" id="draw-grid"></div>
+  <div class="sab-hint" id="draw-hint">Drawing eight contestants…</div>
+</div>
+
+<!-- round winner reveal flash -->
+<div class="overlay" id="winflash">
+  <div class="wf-confetti" id="wf-confetti"></div>
+  <div class="wf-label">Winner</div>
+  <div class="wf-name" id="wf-name">—</div>
+  <div class="wf-sub">advances to the next round</div>
+</div>
+
+<!-- champion overlay -->
+<div class="overlay" id="champ">
+  <div class="crown-big">👑</div>
+  <div class="champ-label">Champion of The Prompt Pit</div>
+  <div class="champ-name" id="champ-name">—</div>
+  <div class="badge">🏆 Vibe Coding Championship 🏆</div>
+</div>
+<div class="confetti" id="confetti"></div>
+
+<span class="badge disconnected" id="disc" style="display:none">⚠ reconnecting…</span>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/ui.js"></script>
+<script src="/stage.js"></script>
+</body>
+</html>
