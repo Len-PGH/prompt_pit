@@ -685,13 +685,17 @@ app.use((_req, res, next) => {
 const PUBLIC_DIR = path.join(__dirname, 'public');
 app.use(express.static(PUBLIC_DIR, { index: false }));
 
+// HTML shells must never be cached (they're scanned via QR on many devices;
+// a stale bfcache copy shows old copy after a deploy). Assets stay cacheable.
+const sendShell = (res, file) =>
+  res.set('Cache-Control', 'no-store').sendFile(path.join(PUBLIC_DIR, file));
 app.get('/', (_req, res) => res.redirect('/stage'));
-app.get('/stage', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'stage.html')));
-app.get('/operator', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'operator.html')));
-app.get('/vote', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'vote.html')));
-app.get('/register', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'register.html')));
-app.get('/stats', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'stats.html')));
-app.get('/how', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'how.html')));
+app.get('/stage', (_req, res) => sendShell(res, 'stage.html'));
+app.get('/operator', (_req, res) => sendShell(res, 'operator.html'));
+app.get('/vote', (_req, res) => sendShell(res, 'vote.html'));
+app.get('/register', (_req, res) => sendShell(res, 'register.html'));
+app.get('/stats', (_req, res) => sendShell(res, 'stats.html'));
+app.get('/how', (_req, res) => sendShell(res, 'how.html'));
 app.get('/api/starters', (_req, res) => res.json(STARTERS));
 // The app's public tunnel URL, so the voice service can point SignalWire at it.
 app.get('/api/public', (_req, res) => res.json({ publicUrl: state.publicUrl || '' }));
