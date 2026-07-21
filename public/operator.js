@@ -8,6 +8,7 @@
   var authed = false;
   var challengeTitleById = {};
   var lastRoster = [];
+  var activeIds = [];   // currently-active challenge ids (for roster pills)
 
   // ---------- key gate ----------
   var savedKey = '';
@@ -305,6 +306,10 @@
     var ch = null;
     var hadTitles = Object.keys(challengeTitleById).length > 0;
     s.challenges.forEach(function (c) { if (c.id === s.challengeId) ch = c; challengeTitleById[c.id] = c.title; });
+    // Track the active set; when it changes, repaint the roster so each
+    // participant's pills reflect the currently-active challenges.
+    var actIds = (s.challenges || []).filter(function (c) { return c.selectable; }).map(function (c) { return c.id; });
+    if (actIds.join(',') !== activeIds.join(',')) { activeIds = actIds; if (lastRoster.length) renderRoster(lastRoster); }
     $('challenge-brief').textContent = ch ? ch.brief : '';
     renderActiveChallenges(s);
     // if the roster came in before we knew challenge titles, repaint it now
@@ -401,7 +406,8 @@
       row.appendChild(nm);
       row.appendChild(x);
       row.appendChild(meta);
-      var picks = (r.challenges || []);
+      // Only show pills for challenges that are currently active.
+      var picks = (r.challenges || []).filter(function (id) { return activeIds.indexOf(id) !== -1; });
       if (picks.length) {
         var tags = document.createElement('div');
         tags.className = 'rtags';
