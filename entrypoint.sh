@@ -37,6 +37,32 @@ if [ "${NO_TUNNEL:-0}" = "1" ]; then
   exit 0
 fi
 
+# Publish a public URL to the app + point the SignalWire number at it.
+publish() {
+  echo "======================================================================"
+  echo "  PUBLIC URL (web + voice + sms):  $1"
+  echo "======================================================================"
+  curl -sf -o /dev/null -X POST -H "Content-Type: application/json" \
+    --data "{\"url\":\"$1\"}" "http://127.0.0.1:${PORT}/api/public-url" \
+    && echo "[all] posted public url to node" \
+    || echo "[all] warn: could not post public url to node"
+  python configure_number.py || echo "[all] number auto-config skipped/failed"
+}
+
+if [ -n "${TUNNEL_TOKEN:-}" ]; then
+  # Stable NAMED tunnel — hostname/ingress configured in the Cloudflare dashboard.
+  echo "[all] starting NAMED cloudflared tunnel (stable URL)…"
+  cloudflared tunnel --no-autoupdate run --token "$TUNNEL_TOKEN" &
+  if [ -n "${PUBLIC_URL:-}" ]; then
+    sleep 3
+    publish "$PUBLIC_URL"
+  else
+    echo "[all] WARN: TUNNEL_TOKEN set but PUBLIC_URL missing — set it to your hostname (https://…)"
+  fi
+  wait
+  exit 0
+fi
+
 echo "[all] starting cloudflared quick tunnel…"
 cloudflared tunnel --no-autoupdate --url "http://localhost:${PORT}" 2>/tmp/cf.log &
 url=""
@@ -46,20 +72,6 @@ while [ "$i" -lt 40 ]; do
   [ -n "$url" ] && break
   i=$((i + 1)); sleep 1
 done
-
-if [ -n "$url" ]; then
-  echo "======================================================================"
-  echo "  PUBLIC URL (web + voice + sms, one tunnel):  $url"
-  echo "======================================================================"
-  # Hand the URL to Node (loopback-only endpoint) for QR + state.publicUrl.
-  curl -sf -o /dev/null -X POST -H "Content-Type: application/json" \
-    --data "{\"url\":\"$url\"}" "http://127.0.0.1:${PORT}/api/public-url" \
-    && echo "[all] posted public url to node" \
-    || echo "[all] warn: could not post public url to node"
-  # Point the SignalWire number's SWML resources at this one tunnel.
-  python configure_number.py || echo "[all] number auto-config skipped/failed"
-else
-  echo "[all] WARN: no tunnel URL captured"
-fi
+if [ -n "$url" ]; then publish "$url"; else echo "[all] WARN: no tunnel URL captured"; fi
 
 wait
