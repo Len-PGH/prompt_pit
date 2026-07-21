@@ -152,14 +152,10 @@
     if (built) return;
     built = true;
 
-    // challenges
-    var sel = $('challenge-sel');
-    s.challenges.forEach(function (c) {
-      var o = document.createElement('option');
-      o.value = c.id; o.textContent = c.title;
-      sel.appendChild(o);
+    // challenges — options are (re)built in render() to match the active set.
+    $('challenge-sel').addEventListener('change', function () {
+      op('setChallenge', { challengeId: $('challenge-sel').value });
     });
-    sel.addEventListener('change', function () { op('setChallenge', { challengeId: sel.value }); });
 
     // contestants
     var ch = $('contestants');
@@ -285,8 +281,27 @@
       });
     }
 
+    // (Re)build the match-challenge dropdown to match the active set (+ the
+    // finale, and whatever's currently selected so it's always representable).
+    function renderChallengeOptions(st) {
+      var sel = $('challenge-sel'); if (!sel) return;
+      var opts = (st.challenges || []).filter(function (c) {
+        return c.selectable || !c.activatable || c.id === st.challengeId;
+      });
+      var sig = opts.map(function (c) { return c.id + (c.selectable ? '1' : '0'); }).join(',');
+      if (sel._sig !== sig) {
+        sel._sig = sig; sel.innerHTML = '';
+        opts.forEach(function (c) {
+          var o = document.createElement('option');
+          o.value = c.id; o.textContent = c.title + (c.activatable ? '' : ' · finale');
+          sel.appendChild(o);
+        });
+      }
+      if (notFocused(sel)) sel.value = st.challengeId;
+    }
+
     // challenge
-    if (notFocused($('challenge-sel'))) $('challenge-sel').value = s.challengeId;
+    renderChallengeOptions(s);
     var ch = null;
     var hadTitles = Object.keys(challengeTitleById).length > 0;
     s.challenges.forEach(function (c) { if (c.id === s.challengeId) ch = c; challengeTitleById[c.id] = c.title; });
