@@ -243,6 +243,44 @@
     });
   }
 
+  // Visual bracket (R1 → SF → F). Click a match to make it active.
+  function renderBracket(s) {
+    var host = $('bracket'); if (!host) return;
+    var cols = [
+      { h: 'Round 1', ids: ['R1M1', 'R1M2', 'R1M3', 'R1M4'] },
+      { h: 'Semi-Finals', ids: ['SF1', 'SF2'] },
+      { h: 'Grand Finale', ids: ['F1'] },
+    ];
+    host.textContent = '';
+    cols.forEach(function (col) {
+      var c = document.createElement('div'); c.className = 'br-col';
+      var h = document.createElement('h4'); h.textContent = col.h; c.appendChild(h);
+      col.ids.forEach(function (mid) {
+        var m = s.matches[mid]; if (!m) return;
+        var box = document.createElement('div');
+        box.className = 'br-m' + (mid === s.currentMatchId ? ' sel' : '');
+        box.addEventListener('click', function () { op('selectMatch', { matchId: mid }); });
+        var lbl = document.createElement('div'); lbl.className = 'br-lbl'; lbl.textContent = m.label;
+        box.appendChild(lbl);
+        ['a', 'b'].forEach(function (side) {
+          var slot = document.createElement('div');
+          var cls = 'br-slot ' + side;
+          if (!m[side]) cls += ' tbd';
+          else if (m.winner) cls += (m.winner === side ? ' win' : ' lose');
+          slot.className = cls;
+          var nm = document.createElement('span'); nm.className = 'nm';
+          nm.textContent = m[side] ? nameOf(m[side]) : 'TBD';
+          var v = document.createElement('span'); v.className = 'v';
+          v.textContent = m[side] ? String((m.votes && m.votes[side]) || 0) : '';
+          slot.appendChild(nm); slot.appendChild(v);
+          box.appendChild(slot);
+        });
+        c.appendChild(box);
+      });
+      host.appendChild(c);
+    });
+  }
+
   // ---------- render ----------
   function render(s) {
     state = s;
@@ -317,6 +355,7 @@
 
     // match list
     renderMatchList(s);
+    renderBracket(s);
 
     // voting
     var m = s.matches[s.currentMatchId];
