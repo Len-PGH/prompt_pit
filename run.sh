@@ -23,14 +23,17 @@ docker build -t "$IMAGE" .
 
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 
-echo "==> Starting… one container serves everything:"
-echo "    Stage:    http://localhost:${PORT}/stage"
-echo "    Operator: http://localhost:${PORT}/operator (key in .env)"
-echo "    Voice/SMS agent + public URL + SignalWire number config print below."
-echo
+# Detached + auto-restart so it comes back after a host reboot / crash.
 # Named volume 'prompt-pit-data' = crash-safe state snapshot.
-exec docker run --rm --name "$NAME" \
+docker run -d --restart unless-stopped --name "$NAME" \
   --env-file .env \
   -p "${PORT}:${PORT}" \
   -v prompt-pit-data:/data \
-  "$IMAGE"
+  "$IMAGE" >/dev/null
+
+echo "==> Started (auto-restarts on boot). One container serves everything:"
+echo "    Stage:    http://localhost:${PORT}/stage"
+echo "    Operator: http://localhost:${PORT}/operator (key in .env)"
+echo "    Logs:     docker logs -f ${NAME}"
+sleep 18
+docker logs "$NAME" 2>&1 | grep -E 'PUBLIC URL|attached' | tail -2 || true
