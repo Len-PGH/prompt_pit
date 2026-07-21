@@ -6,7 +6,8 @@
 
   var selected = new Set();     // challenge ids the contestant picked
   var challengeTitle = {};      // id -> title (for the success screen)
-  var built = false;
+  var built = false;            // one-time static bits (chips, prefill)
+  var challSig = '';            // signature of the active-challenge set
   var starters = [];            // [{id,title,lang,code}] from /api/starters
 
   // Fetch contestant starter kits once (contestant-safe files only).
@@ -17,39 +18,49 @@
   function showErr(text) { var m = $('msg'); m.textContent = text; m.className = 'msg err'; }
   function clearErr() { $('msg').className = 'msg'; }
 
-  // Build the challenge cards + judging chips once, from server state.
+  // (Re)build the challenge cards whenever the operator's active set changes.
+  // Preserves in-progress picks; drops any picks that got deactivated.
+  function renderChallenges(s) {
+    (s.challenges || []).forEach(function (c) { challengeTitle[c.id] = c.title; });
+    var list = (s.challenges || []).filter(function (c) { return c.selectable; });
+    var sig = list.map(function (c) { return c.id; }).join(',');
+    if (sig !== challSig) {
+      challSig = sig;
+      var host = $('challenges');
+      host.textContent = '';
+      list.forEach(function (c) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ch' + (selected.has(c.id) ? ' on' : '');
+        btn.setAttribute('data-id', c.id);
+        var ttl = document.createElement('div'); ttl.className = 'ttl'; ttl.textContent = c.title;
+        var tg = document.createElement('div'); tg.className = 'tg'; tg.textContent = c.tagline;
+        var tick = document.createElement('div'); tick.className = 'tick'; tick.textContent = '✓';
+        btn.appendChild(tick); btn.appendChild(ttl); btn.appendChild(tg);
+        btn.addEventListener('click', function () {
+          if (selected.has(c.id)) { selected.delete(c.id); btn.classList.remove('on'); }
+          else { selected.add(c.id); btn.classList.add('on'); }
+        });
+        host.appendChild(btn);
+      });
+    }
+    // Prune picks for challenges that are no longer active.
+    var activeIds = {};
+    list.forEach(function (c) { activeIds[c.id] = 1; });
+    selected.forEach(function (id) { if (!activeIds[id]) selected.delete(id); });
+
+    // finale note (non-selectable challenges shown as info)
+    var finale = (s.challenges || []).filter(function (c) { return !c.selectable; });
+    $('finale-note').textContent = finale.length
+      ? '★ ' + finale[0].title + ' — ' + finale[0].tagline + ' Reached only by the two finalists; nothing to pick here.'
+      : '';
+  }
+
+  // One-time: judging chips + prefill from a previous registration on this device.
   function buildOnce(s) {
     if (built) return;
     built = true;
 
-    var host = $('challenges');
-    host.textContent = '';
-    (s.challenges || []).forEach(function (c) {
-      challengeTitle[c.id] = c.title;
-      if (!c.selectable) return;
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'ch';
-      btn.setAttribute('data-id', c.id);
-      var ttl = document.createElement('div'); ttl.className = 'ttl'; ttl.textContent = c.title;
-      var tg = document.createElement('div'); tg.className = 'tg'; tg.textContent = c.tagline;
-      var tick = document.createElement('div'); tick.className = 'tick'; tick.textContent = '✓';
-      btn.appendChild(tick); btn.appendChild(ttl); btn.appendChild(tg);
-      btn.addEventListener('click', function () {
-        if (selected.has(c.id)) { selected.delete(c.id); btn.classList.remove('on'); }
-        else { selected.add(c.id); btn.classList.add('on'); }
-      });
-      host.appendChild(btn);
-    });
-
-    // finale note (non-selectable challenges shown as info)
-    var finale = (s.challenges || []).filter(function (c) { return !c.selectable; });
-    if (finale.length) {
-      $('finale-note').textContent = '★ ' + finale[0].title + ' — ' + finale[0].tagline +
-        ' Reached only by the two finalists; nothing to pick here.';
-    }
-
-    // judging chips
     var chost = $('criteria');
     chost.textContent = '';
     (s.criteria || []).forEach(function (c) {
@@ -59,18 +70,13 @@
       chost.appendChild(chip);
     });
 
-    // prefill from a previous registration on this device
     try {
       var saved = JSON.parse(localStorage.getItem('pp_reg') || 'null');
       if (saved) {
         $('f-name').value = saved.name || '';
         $('f-github').value = saved.github || '';
         $('f-email').value = saved.email || '';
-        (saved.challenges || []).forEach(function (id) {
-          selected.add(id);
-          var b = host.querySelector('.ch[data-id="' + id + '"]');
-          if (b) b.classList.add('on');
-        });
+        (saved.challenges || []).forEach(function (id) { selected.add(id); });
       }
     } catch (e) {}
   }
@@ -188,6 +194,7 @@
   socket.on('state', function (s) {
     $('r-sub').textContent = s.subtitle;
     $('count').textContent = s.registrantCount || 0;
-    buildOnce(s);
+    buildOnce(s);          // one-time: chips + prefill saved picks
+    renderChallenges(s);   // live: match the operator's active set
   });
 })();
