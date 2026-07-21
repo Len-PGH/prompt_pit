@@ -88,6 +88,10 @@ function restoreSnapshot() {
     // Refresh static catalog from code so challenge edits/deploys take effect.
     state.challenges = CHALLENGES;
     state.criteria = CRITERIA;
+    // Backfill the active-challenge set for older snapshots (default: all).
+    if (!Array.isArray(state.activeChallengeIds)) {
+      state.activeChallengeIds = CHALLENGES.filter((c) => c.selectable).map((c) => c.id);
+    }
     // Always reflect the current env's voting number (may change between runs).
     state.voteNumber = process.env.VOTE_NUMBER || '';
     // Backfill fields added after older snapshots were written, and self-heal
@@ -290,6 +294,8 @@ function initialState() {
     phase: 'idle',
     challengeId: 'worst-ivr',
     challenges: CHALLENGES,
+    // Operator-chosen active challenges (registrants pick from these). Default: all.
+    activeChallengeIds: CHALLENGES.filter((c) => c.selectable).map((c) => c.id),
     criteria: CRITERIA,
     timer: {
       durationSec: 300,
@@ -339,7 +345,7 @@ const SCOPES = ['flow', 'match', 'timer', 'scoring', 'voting', 'sabotage', 'regi
 // Map each operator command to the scope it requires.
 const SCOPE_FOR = {
   setPhase: 'flow',
-  selectMatch: 'match', setChallenge: 'match',
+  selectMatch: 'match', setChallenge: 'match', setActiveChallenges: 'match',
   timerSet: 'timer', timerStart: 'timer', timerPause: 'timer', timerReset: 'timer', timerAdjust: 'timer',
   setScore: 'scoring', clearScores: 'scoring', setWinner: 'scoring', declareWinner: 'scoring', clearWinner: 'scoring',
   openVoting: 'voting', closeVoting: 'voting', resetVotes: 'voting', setQr: 'voting',
@@ -498,17 +504,35 @@ function validEmail(v) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Only challenges flagged `selectable` may be chosen at registration (the
-// finale is reached, not opted into). Enforced server-side, not just in the UI.
-const SELECTABLE_CHALLENGE_IDS = new Set(CHALLENGES.filter((c) => c.selectable).map((c) => c.id));
-// Validate + dedupe a contestant's selected challenge ids against the catalog.
+// Which challenges CAN be offered at registration (the finale is reached, not
+// opted into). The operator turns a subset of these ON as the event's "active"
+// challenges; `audience-sabotage` (selectable:false) is never activatable.
+const CHALLENGE_ACTIVATABLE = CHALLENGES.filter((c) => c.selectable).map((c) => c.id);
+// The currently-active set (operator-controlled), falling back to all activatable.
+function activeChallengeSet() {
+  const ids = (state && Array.isArray(state.activeChallengeIds) && state.activeChallengeIds.length)
+    ? state.activeChallengeIds : CHALLENGE_ACTIVATABLE;
+  return new Set(ids.filter((id) => CHALLENGE_ACTIVATABLE.includes(id)));
+}
+// Recompute state.challenges with each challenge's `selectable` = is-active, so
+// the register page, pre-show and operator all reflect the operator's choice.
+function syncChallenges() {
+  const active = activeChallengeSet();
+  state.challenges = CHALLENGES.map((c) => ({
+    ...c,
+    activatable: CHALLENGE_ACTIVATABLE.includes(c.id),  // can be turned on/off
+    selectable: active.has(c.id),                        // currently active
+  }));
+}
+// Validate + dedupe a contestant's selected challenge ids against the ACTIVE set.
 function parseChallengeSelection(v) {
   if (!Array.isArray(v)) return [];
+  const active = activeChallengeSet();
   const out = [];
   for (const id of v.slice(0, 50)) {
-    if (typeof id === 'string' && SELECTABLE_CHALLENGE_IDS.has(id) && out.indexOf(id) === -1) out.push(id);
+    if (typeof id === 'string' && active.has(id) && out.indexOf(id) === -1) out.push(id);
   }
-  return out.slice(0, SELECTABLE_CHALLENGE_IDS.size);
+  return out.slice(0, CHALLENGE_ACTIVATABLE.length);
 }
 
 // Rebuild bracket + downstream state from the current contestants list.
@@ -584,7 +608,7 @@ function broadcastRoster() {
 // Aggregate per-challenge pick counts (PII-safe) for the public state.
 function recomputeChallengeCounts() {
   const counts = {};
-  SELECTABLE_CHALLENGE_IDS.forEach((id) => { counts[id] = 0; });
+  CHALLENGE_ACTIVATABLE.forEach((id) => { counts[id] = 0; });
   for (const r of registrations) {
     for (const id of r.challenges || []) {
       if (Object.prototype.hasOwnProperty.call(counts, id)) counts[id] += 1;
@@ -1123,6 +1147,16 @@ async function handleOp(msg, socket) {
       state.challengeId = msg.challengeId;
       break;
     }
+    // Choose which challenges participants can pick from (before the event).
+    case 'setActiveChallenges': {
+      if (!Array.isArray(msg.ids)) throw new Error('bad ids');
+      const ids = msg.ids.filter((id) => CHALLENGE_ACTIVATABLE.includes(id));
+      if (!ids.length) throw new Error('pick at least one challenge');
+      state.activeChallengeIds = [...new Set(ids)];
+      syncChallenges();
+      recomputeChallengeCounts();
+      break;
+    }
 
     // ---- Timer ----
     case 'timerSet': {
@@ -1470,6 +1504,7 @@ function lanIps() {
 server.listen(PORT, '0.0.0.0', async () => {
   const restored = restoreSnapshot();
   ensureMasterKey();
+  syncChallenges();
   recomputeChallengeCounts();
   await regenQr();
   persistNow();

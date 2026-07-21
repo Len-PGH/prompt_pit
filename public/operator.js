@@ -260,12 +260,38 @@
     oc.textContent = fmtClock(s.timer.remainingSec);
     oc.classList.toggle('run', s.timer.running);
 
+    // challenge (declared here; hoisted within this scope)
+    function renderActiveChallenges(st) {
+      var host = $('active-challenges'); if (!host) return;
+      var list = (st.challenges || []).filter(function (c) { return c.activatable; });
+      var activeN = list.filter(function (c) { return c.selectable; }).length;
+      if ($('active-count')) $('active-count').textContent = activeN + ' of ' + list.length + ' active';
+      var sig = list.map(function (c) { return c.id + (c.selectable ? '1' : '0'); }).join(',');
+      if (host._sig === sig) return;   // avoid rebuilding (and fighting a mid-click)
+      host._sig = sig; host.innerHTML = '';
+      list.forEach(function (c) {
+        var lab = document.createElement('label');
+        lab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer';
+        var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!c.selectable; cb.value = c.id;
+        cb.style.cssText = 'width:17px;height:17px';
+        cb.addEventListener('change', function () {
+          var ids = [];
+          host.querySelectorAll('input[type=checkbox]').forEach(function (x) { if (x.checked) ids.push(x.value); });
+          if (!ids.length) { cb.checked = true; toast('Keep at least one challenge active', 'err'); return; }
+          op('setActiveChallenges', { ids: ids });
+        });
+        var span = document.createElement('span'); span.textContent = c.title;
+        lab.appendChild(cb); lab.appendChild(span); host.appendChild(lab);
+      });
+    }
+
     // challenge
     if (notFocused($('challenge-sel'))) $('challenge-sel').value = s.challengeId;
     var ch = null;
     var hadTitles = Object.keys(challengeTitleById).length > 0;
     s.challenges.forEach(function (c) { if (c.id === s.challengeId) ch = c; challengeTitleById[c.id] = c.title; });
     $('challenge-brief').textContent = ch ? ch.brief : '';
+    renderActiveChallenges(s);
     // if the roster came in before we knew challenge titles, repaint it now
     if (!hadTitles && lastRoster.length) renderRoster(lastRoster);
 

@@ -180,9 +180,12 @@
 
     <!-- CHALLENGE -->
     <div class="panel card" data-scope="match">
-      <h3>Challenge</h3>
+      <h3>Challenge <span class="hint">active for this match</span></h3>
       <select id="challenge-sel"></select>
       <div class="muted" id="challenge-brief" style="font-size:12px; margin-top:10px; line-height:1.4;"></div>
+      <h3 style="margin-top:16px">Active challenges <span class="hint" id="active-count"></span></h3>
+      <div class="muted" style="font-size:12px; margin-bottom:8px">Which challenges participants can pick at registration. Set before the event.</div>
+      <div id="active-challenges"></div>
     </div>
 
     <!-- TIMER -->
