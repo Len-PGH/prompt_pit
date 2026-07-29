@@ -23,7 +23,12 @@ publish() {
   echo "    prompt-golf   $1/prompt-golf   (web tool)"
   echo "    menu          $1/menu          (call-in switcher)"
   echo "======================================================================"
-  PUBLIC_URL="$1" python configure_number.py || echo "[ch] number auto-config skipped/failed"
+  # Hand the public URL to the app (loopback) — it stores the base and wires the
+  # number to the active challenge; the /admin switcher re-points it live after.
+  curl -sf -o /dev/null -X POST -H "Content-Type: application/json" \
+    --data "{\"url\":\"$1\"}" "http://127.0.0.1:${PORT}/admin/public-url" \
+    && echo "[ch] handed public URL to app — number wired to active challenge" \
+    || echo "[ch] warn: could not hand public URL to app"
 }
 
 if [ -n "${TUNNEL_TOKEN:-}" ]; then

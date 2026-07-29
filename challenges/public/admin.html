@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Challenges — Operator</title>
+<style>
+  :root{--bg:#0e0e18;--panel:#1a1c2e;--line:rgba(255,255,255,.12);--txt:#f0f0f4;--muted:#a0a0aa;
+    --a:#40E0D0;--purple:#601BE6;--gold:#FFD700;--green:#22c55e;--red:#ef4444;}
+  *{box-sizing:border-box;}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#0e0e18;color:var(--txt);max-width:560px;margin:40px auto;padding:0 18px;}
+  h1{font-size:26px;background:linear-gradient(100deg,var(--a),var(--purple) 60%,#F72A72);-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 4px;}
+  .sub{color:var(--muted);margin:0 0 20px;}
+  input{width:100%;background:#0e0e18;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:15px;}
+  .num{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--gold);}
+  button.ch{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;background:var(--panel);color:var(--txt);
+    border:1px solid var(--line);border-radius:12px;padding:16px;margin:8px 0;font-size:16px;cursor:pointer;}
+  button.ch.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset;}
+  button.ch .tag{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  button.ch.active .tag{color:var(--green);}
+  .err{color:var(--red);min-height:18px;font-size:14px;margin-top:6px;}
+  .gate .k{color:var(--muted);font-size:13px;margin-bottom:6px;}
+</style>
+</head>
+<body>
+  <h1>Challenge switcher</h1>
+  <div class="sub">Tap a challenge to point <span class="num" id="num">the number</span> at it — live, no restart.</div>
+
+  <div id="gate" class="gate" style="display:none">
+    <div class="k">Operator key</div>
+    <input id="key" type="text" placeholder="paste ADMIN_KEY" />
+    <div class="err" id="gate-err"></div>
+  </div>
+
+  <div id="list"></div>
+  <div class="err" id="err"></div>
+
+  <script>
+    var $=function(id){return document.getElementById(id);};
+    var KEY=''; try{KEY=localStorage.getItem('pit_admin')||'';}catch(e){}
+    function fmt(n){var m=String(n||'').replace(/[^\d]/g,'').match(/^1?(\d{3})(\d{3})(\d{4})$/);return m?('+1 ('+m[1]+') '+m[2]+'-'+m[3]):(n||'the number');}
+    var VOICE={'worst-ivr':1,'fix-disaster':1,'carrier':1,'rogue-agent':1};
+    function render(s){
+      $('num').textContent=fmt(s.number);
+      var list=$('list');list.innerHTML='';
+      s.challenges.filter(function(c){return VOICE[c.id];}).forEach(function(c){
+        var active=c.id===s.active;
+        var b=document.createElement('button');b.className='ch'+(active?' active':'');
+        var t=document.createElement('span');t.textContent=c.title;
+        var tag=document.createElement('span');tag.className='tag';tag.textContent=active?'● live':'set live';
+        b.appendChild(t);b.appendChild(tag);
+        b.addEventListener('click',function(){setActive(c.id);});
+        list.appendChild(b);
+      });
+    }
+    function refresh(){fetch('/api/state').then(function(r){return r.json();}).then(render).catch(function(){});}
+    function setActive(ch){
+      $('err').textContent='';
+      fetch('/admin/active',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':KEY},body:JSON.stringify({challenge:ch})})
+        .then(function(r){
+          if(r.status===403){$('gate').style.display='';$('gate-err').textContent=KEY?'Wrong key.':'';return;}
+          return r.json();
+        })
+        .then(function(j){ if(j){ $('gate').style.display='none'; if(!j.ok)$('err').textContent='Set active, but number re-point failed (check creds/number).'; refresh(); } })
+        .catch(function(){$('err').textContent='Request failed.';});
+    }
+    $('key').addEventListener('change',function(){KEY=this.value.trim();try{localStorage.setItem('pit_admin',KEY);}catch(e){}$('gate-err').textContent='';});
+    $('key').addEventListener('keydown',function(e){if(e.key==='Enter'){KEY=this.value.trim();try{localStorage.setItem('pit_admin',KEY);}catch(e2){}refresh();}});
+    if(!KEY)$('gate').style.display='';
+    refresh();setInterval(refresh,4000);
+  </script>
+</body>
+</html>

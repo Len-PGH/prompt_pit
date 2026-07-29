@@ -11,7 +11,8 @@ Every challenge is a route under the same (reusable) public URL:
 Point a SignalWire number's Voice handler at https://<tunnel>/<route>/ to demo.
 """
 import os
-from fastapi import FastAPI
+import httpx
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from signalwire import AgentBase, SWMLService
 
@@ -140,16 +141,83 @@ CHALLENGES = [
     ("rogue-agent", "AI Voice Agent Gone Rogue", "voice"),
     ("prompt-golf", "Prompt Golf", "web"),
 ]
+VOICE_IDS = {cid for cid, _, kind in CHALLENGES if kind == "voice"}
 
 app.include_router(StaticSWML("worst-ivr", WORST_IVR_DOC).as_router(), prefix="/worst-ivr")
 app.include_router(StaticSWML("fix-disaster", FIX_DISASTER_DOC).as_router(), prefix="/fix-disaster")
 app.include_router(StaticSWML("carrier", CARRIER_DOC).as_router(), prefix="/carrier")
 app.include_router(RogueAgent().as_router(), prefix="/rogue-agent")
 
+# ── Live state: which challenge the number rings, and the public base URL ──
+SPACE = os.environ.get("SIGNALWIRE_SPACE", "")
+PROJECT = os.environ.get("SIGNALWIRE_PROJECT", "")
+TOKEN = os.environ.get("SIGNALWIRE_TOKEN", "")
+NUMBER = os.environ.get("CHALLENGE_NUMBER", "")
+AUTH_USER = os.environ.get("SWML_BASIC_AUTH_USER", "pit")
+AUTH_PASS = os.environ.get("SWML_BASIC_AUTH_PASSWORD", "")
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
+STATE = {"active": os.environ.get("CHALLENGE_ACTIVE", "worst-ivr"), "base": os.environ.get("PUBLIC_URL", "").rstrip("/")}
+
+
+def point_number(challenge):
+    """Point CHALLENGE_NUMBER's Voice handler at a challenge route (relay_script SWML)."""
+    base = STATE["base"]
+    if not (SPACE and PROJECT and TOKEN and NUMBER and base and challenge in VOICE_IDS):
+        return False
+    host = base.split("://", 1)[-1]
+    url = f"https://{AUTH_USER}:{AUTH_PASS}@{host}/{challenge}/"
+    try:
+        with httpx.Client(auth=(PROJECT, TOKEN), timeout=15) as c:
+            num = next((n for n in (c.get(f"https://{SPACE}/api/relay/rest/phone_numbers",
+                        params={"page_size": 100}).json() or {}).get("data", []) if n.get("number") == NUMBER), None)
+            if not num:
+                return False
+            r = c.put(f"https://{SPACE}/api/relay/rest/phone_numbers/{num['id']}",
+                      json={"call_handler": "relay_script", "call_relay_script_url": url})
+            return r.status_code < 300 and (r.json() or {}).get("call_handler") == "relay_script"
+    except Exception:
+        return False
+
 
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
+
+
+@app.post("/admin/public-url")
+async def set_public_url(request: Request):
+    ra = request.client.host if request.client else ""
+    if not (ra.startswith("127.") or ra == "::1" or ra.startswith("::ffff:127.")):
+        raise HTTPException(403, "loopback only")
+    body = await request.json()
+    url = (body.get("url") or "").rstrip("/")
+    if url:
+        STATE["base"] = url
+        point_number(STATE["active"])   # wire the number to the current active challenge
+    return {"ok": True, "base": STATE["base"], "active": STATE["active"]}
+
+
+@app.get("/api/state")
+def api_state():
+    return {
+        "active": STATE["active"],
+        "number": NUMBER,
+        "base": STATE["base"],
+        "challenges": [{"id": c, "title": t, "kind": k} for c, t, k in CHALLENGES],
+    }
+
+
+@app.post("/admin/active")
+async def set_active(request: Request):
+    if not ADMIN_KEY or request.headers.get("x-admin-key") != ADMIN_KEY:
+        raise HTTPException(403, "forbidden")
+    body = await request.json()
+    ch = body.get("challenge")
+    if ch not in VOICE_IDS:
+        raise HTTPException(400, "not a voice challenge")
+    STATE["active"] = ch
+    ok = point_number(ch)
+    return {"ok": ok, "active": ch, "number": NUMBER}
 
 
 @app.get("/prompt-golf", response_class=HTMLResponse)
@@ -159,19 +227,13 @@ def prompt_golf():
         return f.read()
 
 
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page():
+    with open(os.path.join(os.path.dirname(__file__), "public", "admin.html")) as f:
+        return f.read()
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
-    rows = "".join(
-        f'<li><code>/{cid}{"/" if kind == "voice" else ""}</code> — {title} <span class="k">{kind}</span></li>'
-        for cid, title, kind in CHALLENGES
-    )
-    return f"""<!doctype html><meta charset=utf-8>
-<meta name=viewport content="width=device-width, initial-scale=1">
-<title>The Prompt Pit — Challenges</title>
-<style>body{{font-family:system-ui,sans-serif;background:#0e0e18;color:#f0f0f4;max-width:640px;margin:40px auto;padding:0 18px}}
-h1{{background:linear-gradient(100deg,#40E0D0,#601BE6 60%,#F72A72);-webkit-background-clip:text;background-clip:text;color:transparent}}
-li{{margin:10px 0;line-height:1.5}}code{{background:#222436;padding:2px 8px;border-radius:6px;color:#40E0D0}}
-.k{{font-size:11px;color:#a0a0aa;text-transform:uppercase;letter-spacing:1px;margin-left:6px}}p{{color:#a0a0aa}}</style>
-<h1>The Prompt Pit — Challenges</h1>
-<p>Reference builds. Point a SignalWire number's Voice handler at a voice route to demo a challenge.</p>
-<ul>{rows}</ul>"""
+    with open(os.path.join(os.path.dirname(__file__), "public", "index.html")) as f:
+        return f.read()
