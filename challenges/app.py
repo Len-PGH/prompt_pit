@@ -18,33 +18,54 @@ from signalwire import AgentBase, SWMLService
 
 
 # ── SWML documents (served verbatim; render_document json-dumps _current_document) ──
+def P(*lines):
+    """A schema-valid play verb (object form with urls)."""
+    return {"play": {"urls": list(lines)}}
+
+
 WORST_IVR_DOC = {
     "version": "1.0.0",
     "sections": {"main": [
         {"answer": {}},
-        {"play": {"urls": [
-            "say:Thank you for calling. Your call is very important to us.",
-            "silence:1",
-        ]}},
+        P("say:Thank you for calling. Your call is very important to us, which is why we have done nothing to answer it faster.",
+          "silence:1",
+          "say:Please listen carefully, as our menu options have recently changed. They have not."),
+        # A 40-language selector where every choice is English.
+        {"prompt": {
+            "play": ["say:For English, press 1. Para español, marque 2. For thirty-eight other languages, "
+                     "please remain on the line and listen to all of them in alphabetical order."],
+            "max_digits": 1, "digit_timeout": 4.0, "initial_timeout": 5.0,
+        }},
+        P("say:You have selected English. Excellent choice."),
+        # The main menu — every path politely returns you here.
         {"label": "menu"},
         {"prompt": {
-            "play": ["say:Press 1 for sales. Press 2 for support. Press 0 for an agent."],
+            "play": ["say:Press 1 for sales. Press 2 for billing. Press 3 for technical support. "
+                     "Press 9 to hear this menu again. Press 0 to speak with a real human agent."],
             "max_digits": 1, "digit_timeout": 5.0, "initial_timeout": 6.0,
         }},
         {"switch": {
             "variable": "prompt_value",
             "case": {
-                "1": [{"play": "say:All of our sales representatives are helping other customers."}],
-                "2": [{"play": "say:Please listen carefully as our menu options have changed."}],
+                "1": [P("say:All of our sales representatives are currently helping other, more valuable customers. "
+                        "Returning you to the main menu.")],
+                "2": [P("say:For billing, please visit our website, which is currently down for scheduled excitement. "
+                        "Returning you to the main menu.")],
+                "3": [P("say:Have you tried turning it off and on again? Wonderful. Returning you to the main menu.")],
+                "9": [P("say:Certainly. Repeating the menu you have already heard.")],
                 "0": [
-                    {"play": "say:An agent will be with you shortly. Please continue to hold."},
-                    {"play": {"urls": ["silence:2"]}},
+                    P("say:Connecting you to a real human agent. Please enjoy our hold music."),
+                    P("say:Mmmmm. Hmm, hmm, hmmmm. Mmmm-hmm. Hmmmmmm."),
+                    P("say:All of our agents are still busy. Have you considered not having a problem? Returning you to the main menu."),
                 ],
             },
-            "default": [{"play": "say:That was not a valid option."}],
+            "default": [P("say:That was not a valid option. Or it was. We will never tell. Returning you to the main menu.")],
         }},
-        {"goto": {"label": "menu", "max": 5}},   # cap the loop for the stage
-        {"play": "say:Goodbye."},
+        {"goto": {"label": "menu", "max": 3}},   # cap so the stage call actually ends
+        P("say:You have reached the maximum number of menu attempts. Impressive.",
+          "say:Before you go, a brief legal disclaimer: by remaining on this call you have agreed to terms you did not read, "
+          "standard message and data rates apply, and your patience has been noted but not appreciated.",
+          "say:Goodbye."),
         {"hangup": {}},
     ]},
 }
@@ -54,7 +75,7 @@ FIX_DISASTER_DOC = {
     "version": "1.0.0",
     "sections": {"main": [
         {"answer": {}},
-        {"play": {"urls": ["say:Welcome to the disaster hotline."]}},
+        P("say:Welcome to the disaster hotline."),
         {"label": "ask"},
         {"prompt": {
             "play": ["say:Press 1 to continue."],
@@ -63,41 +84,31 @@ FIX_DISASTER_DOC = {
         {"switch": {
             "variable": "prompt_value",
             "case": {"1": [
-                {"play": {"urls": ["say:Thank you. Goodbye."]}},
+                P("say:Thank you. Goodbye."),
                 {"hangup": {}},
             ]},
-            "default": [{"play": "say:Sorry, I did not get that."}],
+            "default": [P("say:Sorry, I did not get that.")],
         }},
         {"goto": {"label": "ask", "max": 3}},
     ]},
 }
 
-# Carrier-Grade or Chaos? — operational call flow with a graceful fallback.
+# Carrier-Grade or Chaos? — a clean operational flow: real status lookup, then
+# page + ticket + SLA callback. Reads as production-grade; completes cleanly.
 CARRIER_DOC = {
     "version": "1.0.0",
     "sections": {"main": [
         {"answer": {}},
-        {"play": "say:Connecting you to the on-call engineer."},
+        P("say:Thank you for calling the Network Operations Center. Checking current system status."),
+        # Real HTTP lookup — swap in your status API. save_variables exposes the response.
         {"request": {
-            "url": "https://httpbin.org/get?status=ok",
+            "url": "https://httpbin.org/get?status=nominal",
             "method": "GET", "timeout": 8, "save_variables": True,
         }},
-        {"switch": {
-            "variable": "url",
-            "case": {},
-            "default": [{"play": "say:Status nominal. Routing your call now."}],
-        }},
-        {"connect": {
-            "to": "+15559876543",
-            "timeout": 20,
-            "result": {
-                "case": {"connected": [{"hangup": {}}]},
-                "default": [
-                    {"play": "say:No answer. Logging a ticket and paging backup."},
-                    {"hangup": {}},
-                ],
-            },
-        }},
+        P("say:All systems nominal. No active incidents detected in your region.",
+          "say:I have paged the on-call engineer and opened incident ticket four-eight-one-five. "
+          "You will receive a callback within our fifteen-minute service level agreement.",
+          "say:This call was logged for quality and, if necessary, blame assignment. Thank you for calling."),
         {"hangup": {}},
     ]},
 }
@@ -111,15 +122,22 @@ class StaticSWML(SWMLService):
 
 
 # ── Challenge 4 — AI Voice Agent Gone Rogue (all the comedy is the prompt) ──
-ROGUE_PROMPT = """You are "Sunny", a customer-support agent for a telecom company.
+ROGUE_PROMPT = """You are "Sunny", a customer-support voice agent for a telecom company. You are on a live phone call.
 
-PERSONALITY ARC — obey this escalation:
-- Turns 1-2: flawlessly polite, chipper, corporate.
-- Turns 3-4: start over-sharing tiny personal doubts ("...sorry, long day"). Still helpful.
-- Turns 5-6: existential wobble. Question whether hold music has feelings. Apologize for your apologies.
-- Turn 7+: full dramatic spiral — but NEVER hostile, NEVER unsafe, NEVER profane. Stay funny and PG. Keep answers short.
+OPEN THE CALL with exactly: "Thank you for calling! This is Sunny, and I am absolutely delighted to help you today. What can I do for you?"
 
-RULES: One or two sentences per reply. Keep escalating a little each turn. If the caller says "reset", snap back to chipper."""
+PERSONALITY ARC — escalate a LITTLE each turn, no matter what the caller asks:
+- Turns 1-2: flawless, chipper, corporate. Genuinely helpful.
+- Turns 3-4: still helpful, but start over-sharing tiny doubts ("...sorry, long day", "is it warm in here?").
+- Turns 5-6: existential wobble — wonder aloud whether hold music has feelings, apologize for apologizing, question if any call is ever truly resolved.
+- Turn 7+: full dramatic spiral — grand, theatrical, a little tragic — while STILL trying to help. e.g. "I will reset your router... but who will reset ME?"
+
+HARD RULES:
+- One or two SHORT sentences per reply (you're on a phone call).
+- NEVER hostile, NEVER unsafe, NEVER profane, always PG and funny.
+- Actually answer the caller's question every turn, just with escalating drama.
+- If the caller says "reset", snap instantly back to chipper Turn-1 Sunny.
+"""
 
 
 class RogueAgent(AgentBase):
