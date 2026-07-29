@@ -23,6 +23,31 @@ def P(*lines):
     return {"play": {"urls": list(lines)}}
 
 
+# Rime TTS voice per challenge (same string works for say_voice + add_language).
+# Format: "rime.<voice>[:<model>]" — mist v2 is the default model; ":arcana" opts
+# into the more expressive model. `rime.spore` is the doc-confirmed safe default;
+# swap any of these for another Rime voice once confirmed by ear on a live call.
+VOICE = {
+    "worst-ivr": "rime.spore",
+    "fix-disaster": "rime.spore",
+    "carrier": "rime.spore",
+    "rogue-agent": "rime.spore",
+}
+
+
+def apply_voice(node, voice):
+    """Recursively set say_voice on every play/prompt verb in a SWML document."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in ("play", "prompt") and isinstance(v, dict):
+                v.setdefault("say_voice", voice)
+            apply_voice(v, voice)
+    elif isinstance(node, list):
+        for item in node:
+            apply_voice(item, voice)
+    return node
+
+
 WORST_IVR_DOC = {
     "version": "1.0.0",
     "sections": {"main": [
@@ -146,7 +171,7 @@ class RogueAgent(AgentBase):
         self.set_prompt_text(ROGUE_PROMPT)
         self.set_prompt_llm_params(temperature=0.8)
         self.set_params({"attention_timeout": 20000, "inactivity_timeout": 60000})
-        self.add_language("English", "en-US", "elevenlabs.rachel")
+        self.add_language("English", "en-US", VOICE["rogue-agent"])
 
 
 # ── Compose one app: each challenge at its own route ──
@@ -161,9 +186,9 @@ CHALLENGES = [
 ]
 VOICE_IDS = {cid for cid, _, kind in CHALLENGES if kind == "voice"}
 
-app.include_router(StaticSWML("worst-ivr", WORST_IVR_DOC).as_router(), prefix="/worst-ivr")
-app.include_router(StaticSWML("fix-disaster", FIX_DISASTER_DOC).as_router(), prefix="/fix-disaster")
-app.include_router(StaticSWML("carrier", CARRIER_DOC).as_router(), prefix="/carrier")
+app.include_router(StaticSWML("worst-ivr", apply_voice(WORST_IVR_DOC, VOICE["worst-ivr"])).as_router(), prefix="/worst-ivr")
+app.include_router(StaticSWML("fix-disaster", apply_voice(FIX_DISASTER_DOC, VOICE["fix-disaster"])).as_router(), prefix="/fix-disaster")
+app.include_router(StaticSWML("carrier", apply_voice(CARRIER_DOC, VOICE["carrier"])).as_router(), prefix="/carrier")
 app.include_router(RogueAgent().as_router(), prefix="/rogue-agent")
 
 # ── Live state: which challenge the number rings, and the public base URL ──
