@@ -15,7 +15,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py configure_number.py entrypoint.sh ./
 COPY public ./public
-RUN chmod +x entrypoint.sh && useradd -m app && chown -R app /app
+RUN chmod +x entrypoint.sh && useradd -m app && mkdir -p /app/data && chown -R app /app
 USER app
 
 ENV PORT=3400

@@ -4,13 +4,22 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Prompt Pit — Challenges</title>
+<script src="https://cdn.signalwire.com/@signalwire/js@4.0.0-rc.0"></script>
 <style>
   :root{--bg:#0e0e18;--panel:#1a1c2e;--line:rgba(255,255,255,.12);--txt:#f0f0f4;--muted:#a0a0aa;
-    --a:#40E0D0;--b:#F72A72;--purple:#601BE6;--gold:#FFD700;--green:#22c55e;}
+    --a:#40E0D0;--b:#F72A72;--purple:#601BE6;--gold:#FFD700;--green:#22c55e;--red:#ef4444;}
   *{box-sizing:border-box;}
   body{font-family:system-ui,-apple-system,sans-serif;background:#0e0e18;color:var(--txt);max-width:720px;margin:40px auto;padding:0 18px;}
   h1{font-size:clamp(28px,6vw,44px);margin:0;background:linear-gradient(100deg,var(--a),var(--purple) 60%,var(--b));-webkit-background-clip:text;background-clip:text;color:transparent;}
-  .sub{color:var(--muted);margin:4px 0 22px;}
+  .sub{color:var(--muted);margin:4px 0 20px;}
+  .callbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(100deg,rgba(64,224,208,.10),rgba(96,27,230,.10));
+    border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 18px;}
+  .btn{border:none;border-radius:12px;font:inherit;font-weight:700;font-size:16px;padding:13px 20px;cursor:pointer;color:#0e0e18;
+    background:linear-gradient(100deg,var(--a),#7ff0e6);}
+  .btn.end{background:linear-gradient(100deg,var(--red),#ff7a8a);color:#fff;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .cstatus{color:var(--muted);font-size:14px;}
+  .cstatus.live{color:var(--green);}
   .c{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:10px 0;}
   .c.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset;}
   .c .ttl{font-weight:600;}
@@ -19,41 +28,111 @@
   .grow{flex:1;}
   .num{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--gold);white-space:nowrap;}
   .live{font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-left:6px;}
-  .foot{color:var(--muted);font-size:13px;margin-top:20px;}
-  .foot a{color:var(--a);}
+  .foot{color:var(--muted);font-size:13px;margin-top:20px;}.foot a{color:var(--a);}
+  .pad{display:none;grid-template-columns:repeat(3,1fr);gap:8px;max-width:280px;margin:0 0 18px;}
+  .pad.on{display:grid;}
+  .pad button{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:12px;
+    padding:12px 0 8px;font-size:22px;font-weight:700;cursor:pointer;font-family:ui-monospace,Menlo,monospace;line-height:1;}
+  .pad button:active{background:rgba(64,224,208,.18);border-color:var(--a);transform:translateY(1px);}
+  .pad button .sub{display:block;font-size:9px;color:var(--muted);letter-spacing:2px;font-weight:600;margin-top:3px;min-height:11px;}
 </style>
 </head>
 <body>
   <h1>The Prompt Pit — Challenges</h1>
-  <div class="sub">Reference builds. Call the number next to a challenge to hear it live.</div>
+  <div class="sub">Call the live challenge from your browser, or dial the number next to it.</div>
+
+  <div class="callbar">
+    <button class="btn" id="call">📞 Call the live challenge</button>
+    <button class="btn end" id="hangup" style="display:none">■ Hang up</button>
+    <span class="cstatus" id="cstatus">tap to talk to <b id="active-name">the challenge</b> — no phone needed</span>
+  </div>
+
+  <div class="pad" id="pad"></div>
+
   <div id="list"></div>
-  <div class="foot">Operator: <a href="/admin">/admin</a> to switch which challenge the number rings.</div>
+  <div class="foot">Operator: <a href="/admin">/admin</a> to switch which challenge is live.</div>
+  <audio id="rtc" autoplay></audio>
 
   <script>
+    var $=function(id){return document.getElementById(id);};
     function fmt(n){var m=String(n||'').replace(/[^\d]/g,'').match(/^1?(\d{3})(\d{3})(\d{4})$/);return m?('+1 ('+m[1]+') '+m[2]+'-'+m[3]):(n||'');}
+    var TITLES={};
     function render(s){
-      var base=(s.base||'').replace(/\/+$/,'');
-      var host=location.origin;
-      var list=document.getElementById('list');list.innerHTML='';
-      s.challenges.forEach(function(c){
-        var voice=c.kind==='voice';
-        var active=voice&&c.id===s.active;
+      var base=(s.base||'').replace(/\/+$/,'')||location.origin;
+      var list=$('list');list.innerHTML='';
+      s.challenges.forEach(function(c){ TITLES[c.id]=c.title;
+        var voice=c.kind==='voice', active=voice&&c.id===s.active;
         var row=document.createElement('div');row.className='c'+(active?' active':'');
         var ttl=document.createElement('span');ttl.className='ttl';ttl.textContent=c.title;
         var k=document.createElement('span');k.className='k';k.textContent=c.kind;
-        var link=document.createElement('a');link.href=(base||host)+'/'+c.id+(voice?'/':'');link.textContent='/'+c.id+(voice?'/':'');
+        var link=document.createElement('a');link.href=base+'/'+c.id+(voice?'/':'');link.textContent='/'+c.id+(voice?'/':'');
         var grow=document.createElement('span');grow.className='grow';
         row.appendChild(ttl);row.appendChild(k);row.appendChild(link);row.appendChild(grow);
-        if(active&&s.number){
-          var num=document.createElement('span');num.className='num';num.textContent='📞 '+fmt(s.number);
-          var live=document.createElement('span');live.className='live';live.textContent='now ringing';
-          row.appendChild(num);row.appendChild(live);
-        }
+        if(active&&s.number){var num=document.createElement('span');num.className='num';num.textContent='📞 '+fmt(s.number);
+          var live=document.createElement('span');live.className='live';live.textContent='now ringing';row.appendChild(num);row.appendChild(live);}
         list.appendChild(row);
       });
+      $('active-name').textContent = TITLES[s.active] || 'the challenge';
     }
     function tick(){fetch('/api/state').then(function(r){return r.json();}).then(render).catch(function(){});}
     tick();setInterval(tick,3000);
+
+    // ---- WebRTC click-to-call (@signalwire/js v4) ----
+    var client=null, call=null;
+    function cstatus(t,live){var el=$('cstatus');el.innerHTML='';el.appendChild(document.createTextNode(t));el.className='cstatus'+(live?' live':'');}
+    function showCall(inCall){$('call').style.display=inCall?'none':'';$('hangup').style.display=inCall?'':'none';$('pad').className='pad'+(inCall?' on':'');}
+    function SW(){return window.SignalWire;}
+    // ---- DTMF keypad ----
+    var PAD=[['1',''],['2','ABC'],['3','DEF'],['4','GHI'],['5','JKL'],['6','MNO'],['7','PQRS'],['8','TUV'],['9','WXYZ'],['*',''],['0','+'],['#','']];
+    (function buildPad(){
+      var p=$('pad');
+      PAD.forEach(function(d){
+        var b=document.createElement('button');b.type='button';
+        b.appendChild(document.createTextNode(d[0]));
+        var s=document.createElement('span');s.className='sub';s.textContent=d[1];b.appendChild(s);
+        b.addEventListener('click',function(){ sendDigit(d[0]); });
+        p.appendChild(b);
+      });
+    })();
+    function sendDigit(dg){
+      if(!call||!call.sendDigits) return;
+      call.sendDigits(dg).catch(function(){});
+      cstatus('● pressed '+dg+' — keep talking or dial more', true);
+    }
+    async function getToken(){var r=await fetch('/api/webrtc-token');if(!r.ok)throw new Error('token endpoint '+r.status);return r.json();}
+    function attach(c){
+      function set(st){ if(st){ var a=$('rtc'); a.srcObject=st; if(a.play) a.play().catch(function(){}); } }
+      set(c.remoteStream);
+      if(c.remoteStream$&&c.remoteStream$.subscribe){ c.remoteStream$.subscribe(set); }
+    }
+    async function teardown(){
+      try{ if(call&&call.hangup) await call.hangup(); }catch(e){}
+      try{ if(client&&client.disconnect) await client.disconnect(); }catch(e){}
+      client=null; call=null; $('rtc').srcObject=null;
+    }
+    $('call').addEventListener('click', async function(){
+      if(!SW()){ cstatus('voice SDK still loading — try again in a sec'); return; }
+      $('call').disabled=true; cstatus('connecting…');
+      try{
+        var d=await getToken();                       // { token, address, active }
+        var name=(TITLES[d.active]||'the challenge');
+        // v4: guest token -> StaticCredentialProvider -> client -> dial(address)
+        client=new (SW().SignalWire)(new (SW().StaticCredentialProvider)({ token:d.token }));
+        call=await Promise.race([
+          client.dial(d.address),
+          new Promise(function(_,rej){ setTimeout(function(){rej(new Error('timed out'));},25000); })
+        ]);
+        attach(call);
+        if(call.on){ call.on('call.state',function(p){ if(p&&/ended|destroy/i.test(p.call_state||p.state||'')) { showCall(false); cstatus('call ended — tap to call again'); } }); }
+        cstatus('● on call with '+name+' — say hello!', true); showCall(true);
+      }catch(e){
+        await teardown();
+        cstatus('couldn’t connect: '+((e&&e.message)||e));
+      }finally{ $('call').disabled=false; }
+    });
+    $('hangup').addEventListener('click', async function(){
+      await teardown(); showCall(false); cstatus('call ended — tap to call again');
+    });
   </script>
 </body>
 </html>

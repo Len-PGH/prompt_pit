@@ -11,7 +11,8 @@ fi
 PORT="$(grep -E '^PORT=' .env | tail -1 | cut -d= -f2 | tr -d '[:space:]')"; PORT="${PORT:-3400}"
 echo "==> building $IMAGE…"; docker build -t "$IMAGE" .
 docker rm -f "$NAME" >/dev/null 2>&1 || true
-docker run -d --restart unless-stopped --name "$NAME" --env-file .env -p "${PORT}:${PORT}" "$IMAGE" >/dev/null
+docker run -d --restart unless-stopped --name "$NAME" --env-file .env -p "${PORT}:${PORT}" \
+  -v pit-golf-data:/app/data "$IMAGE" >/dev/null
 echo "==> started (auto-restarts on boot). Logs: docker logs -f $NAME"
 sleep 18
 docker logs "$NAME" 2>&1 | grep -E 'PUBLIC URL|worst-ivr|rogue|carrier|attached' | head

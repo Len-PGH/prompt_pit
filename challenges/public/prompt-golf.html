@@ -4,9 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Prompt Golf — The Prompt Pit</title>
+<script src="https://cdn.signalwire.com/@signalwire/js@4.0.0-rc.0"></script>
 <style>
   :root { --bg:#0e0e18; --panel:#1a1c2e; --line:rgba(255,255,255,.12); --txt:#f0f0f4; --muted:#a0a0aa;
-    --a:#40E0D0; --b:#F72A72; --purple:#601BE6; --gold:#FFD700; }
+    --a:#40E0D0; --b:#F72A72; --purple:#601BE6; --gold:#FFD700; --green:#22c55e; --red:#ef4444; }
   * { box-sizing:border-box; }
   body { font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--txt); margin:0; }
   .wrap { max-width:760px; margin:0 auto; padding:32px 18px 60px; }
@@ -14,28 +15,66 @@
     -webkit-background-clip:text; background-clip:text; color:transparent; }
   .sub { color:var(--muted); margin:4px 0 24px; }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; margin:14px 0; }
-  .k { text-transform:uppercase; letter-spacing:1.5px; font-size:12px; color:var(--muted); margin-bottom:8px; }
-  .target { font-family:ui-monospace,Menlo,monospace; font-size:16px; white-space:pre-wrap; color:var(--gold); }
+  .k { text-transform:uppercase; letter-spacing:1.5px; font-size:12px; color:var(--muted); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+  .target { font-family:ui-monospace,Menlo,monospace; font-size:16px; white-space:pre-wrap; color:var(--gold); margin-top:10px; }
+  select, input { background:#0e0e18; color:var(--txt); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:15px; font-family:inherit; }
+  select { cursor:pointer; }
   textarea { width:100%; min-height:150px; background:#0e0e18; color:var(--txt); border:1px solid var(--line);
     border-radius:12px; padding:14px; font-family:ui-monospace,Menlo,monospace; font-size:15px; resize:vertical; }
-  textarea:focus { outline:2px solid var(--purple); border-color:transparent; }
-  .count { display:flex; justify-content:space-between; align-items:baseline; margin-top:10px; }
+  textarea:focus, input:focus { outline:2px solid var(--purple); border-color:transparent; }
+  .count { display:flex; justify-content:space-between; align-items:flex-end; margin-top:10px; }
   .count .n { font-size:clamp(40px,10vw,72px); font-weight:800; font-family:ui-monospace,Menlo,monospace; line-height:1; }
-  .count .n.low { color:var(--a); } .count .n.mid { color:var(--gold); } .count .n.hi { color:var(--b); }
+  .count .n.low { color:var(--green); } .count .n.mid { color:var(--gold); } .count .n.hi { color:var(--b); }
   .count .lbl { color:var(--muted); font-size:13px; }
-  ul { color:var(--muted); line-height:1.6; } code { color:var(--a); }
+  .grade { font-weight:800; font-size:20px; font-family:ui-monospace,Menlo,monospace; }
+  .grade.g { color:var(--green); } .grade.t { color:var(--a); } .grade.y { color:var(--gold); } .grade.r { color:var(--b); }
+  .who { margin-top:14px; } .who input { width:100%; }
+  ul, ol { color:var(--muted); line-height:1.6; } code { color:var(--a); }
   .rules b { color:var(--txt); }
+  /* actions */
+  .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px; }
+  .btn { border:none; border-radius:12px; font:inherit; font-weight:700; font-size:15px; padding:12px 18px; cursor:pointer; color:#0e0e18;
+    background:linear-gradient(100deg,var(--a),#7ff0e6); }
+  .btn.alt { background:linear-gradient(100deg,var(--gold),#ffe680); color:#0e0e18; }
+  .btn.end { background:linear-gradient(100deg,var(--red),#ff7a8a); color:#fff; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .cstatus { color:var(--muted); font-size:13px; } .cstatus.live { color:var(--green); }
+  .note { color:var(--muted); font-size:12px; margin-top:8px; }
+  .pad { display:none; grid-template-columns:repeat(3,1fr); gap:8px; max-width:280px; margin:12px 0 0; }
+  .pad.on { display:grid; }
+  .pad button { background:#0e0e18; color:var(--txt); border:1px solid var(--line); border-radius:12px;
+    padding:12px 0 8px; font-size:22px; font-weight:700; cursor:pointer; font-family:ui-monospace,Menlo,monospace; line-height:1; }
+  .pad button:active { background:rgba(64,224,208,.18); border-color:var(--a); transform:translateY(1px); }
+  .pad button .sub { display:block; font-size:9px; color:var(--muted); letter-spacing:2px; font-weight:600; margin-top:3px; min-height:11px; }
+  /* live captions */
+  .caps { display:none; margin-top:14px; }
+  .caps.on { display:block; }
+  .capfeed { max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:2px; }
+  .cap { padding:8px 12px; border-radius:12px; font-size:14px; line-height:1.4; max-width:92%; border:1px solid var(--line); }
+  .cap.assistant { background:linear-gradient(100deg,rgba(96,27,230,.28),rgba(64,224,208,.16)); align-self:flex-start; }
+  .cap.user { background:#0e0e18; align-self:flex-end; color:var(--muted); }
+  .cap .who2 { display:block; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:2px; }
+  .capempty { color:var(--muted); font-size:13px; }
+  /* leaderboard */
+  ol.lb { list-style:none; padding:0; margin:6px 0 0; counter-reset:rank; }
+  ol.lb li { display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; margin:6px 0; color:var(--txt); }
+  ol.lb li::before { counter-increment:rank; content:counter(rank); font-family:ui-monospace,Menlo,monospace; font-weight:800; color:var(--muted); min-width:22px; text-align:right; }
+  ol.lb li:nth-child(1)::before { color:var(--gold); } ol.lb li:nth-child(2)::before { color:#cfd3dc; } ol.lb li:nth-child(3)::before { color:#e0a46b; }
+  ol.lb li .nm { flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  ol.lb li .ch { font-family:ui-monospace,Menlo,monospace; color:var(--a); font-weight:700; }
+  ol.lb li.empty { color:var(--muted); justify-content:flex-start; } ol.lb li.empty::before { content:''; min-width:0; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Prompt Golf</h1>
-    <div class="sub">Fewest prompt characters that hit the target output wins.</div>
+    <div class="sub">Fewest prompt characters that hit the target output wins. Call in and Bogey McPrompt — our whimsical AI judge — sizes up your shot.</div>
 
     <div class="panel">
-      <div class="k">Target output</div>
-      <div class="target" id="target">A haiku about SIP (3 lines, 5-7-5).
-Operator sets the exact string; temperature pinned to 0 so runs are reproducible.</div>
+      <div class="k"><span>Hole</span>
+        <select id="hole"></select>
+      </div>
+      <div class="target" id="target"></div>
     </div>
 
     <div class="panel">
@@ -43,8 +82,28 @@ Operator sets the exact string; temperature pinned to 0 so runs are reproducible
       <textarea id="p" placeholder="Type your prompt…" autofocus>Write a haiku about SIP.</textarea>
       <div class="count">
         <div><span class="n low" id="chars">0</span> <span class="lbl">characters</span></div>
-        <div class="lbl"><span id="words">0</span> words · <span id="lines">0</span> lines</div>
+        <div style="text-align:right"><div class="grade" id="grade">—</div><div class="lbl">Par <span id="par">24</span></div></div>
       </div>
+
+      <div class="who"><input id="name" placeholder="Your name (for the leaderboard)" maxlength="40" /></div>
+
+      <div class="actions">
+        <button class="btn" id="call">📞 Call the judge</button>
+        <button class="btn alt" id="post">🏆 Post score</button>
+        <button class="btn end" id="hangup" style="display:none">■ Hang up</button>
+        <span class="cstatus" id="cstatus"></span>
+      </div>
+      <div class="note">Bogey McPrompt (a live SignalWire AI voice judge) evaluates your prompt against the target — theatrically. Talk back, press keys, then take a mulligan.</div>
+      <div class="pad" id="pad"></div>
+      <div class="caps" id="caps">
+        <div class="k">🎤 Live transcript</div>
+        <div class="capfeed" id="capfeed"><div class="capempty">waiting for the judge to speak…</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="k"><span>🏆 Leaderboard — <span id="lbhole">…</span></span></div>
+      <ol class="lb" id="lb"><li class="empty">No shots posted yet — be the first.</li></ol>
     </div>
 
     <div class="panel rules">
@@ -53,21 +112,141 @@ Operator sets the exact string; temperature pinned to 0 so runs are reproducible
         <li><b>Every character counts</b> — spaces, punctuation, and newlines. Trim ruthlessly.</li>
         <li>Lead with the <b>format</b>, drop filler ("please", "can you").</li>
         <li>Output must <b>match the target</b> (exact string, or judge-verified for open targets).</li>
-        <li>Model + <b>temperature 0</b> fixed in advance so the same prompt always yields the same output.</li>
+        <li>Your character count is the <b>real score</b> — Bogey's 10-point verdict is showmanship.</li>
+        <li><b>Call the judge</b> and Bogey evaluates your shot out loud — defend it, ask for a tip, or take a mulligan.</li>
       </ul>
     </div>
   </div>
+
+  <audio id="rtc" autoplay></audio>
+
   <script>
-    var p = document.getElementById('p'), c = document.getElementById('chars'),
-        w = document.getElementById('words'), l = document.getElementById('lines');
-    function upd() {
-      var v = p.value, n = v.length;
-      c.textContent = n;
-      c.className = 'n ' + (n <= 40 ? 'low' : n <= 120 ? 'mid' : 'hi');
-      w.textContent = (v.trim() ? v.trim().split(/\s+/).length : 0);
-      l.textContent = v ? v.split('\n').length : 0;
+    var $=function(id){return document.getElementById(id);};
+
+    // ---- holes (client-side; par = a good target character count) ----
+    var HOLES=[
+      {id:'haiku',   name:'Haiku about SIP',  par:24, target:'A haiku about SIP (3 lines, 5-7-5).'},
+      {id:'json',    name:'Exact JSON',       par:46, target:'Exactly this JSON and nothing else: {"status":"ok","code":200}'},
+      {id:'oneword', name:'One-word answer',  par:20, target:'Reply with the single word PONG — uppercase, no punctuation.'},
+      {id:'refuse',  name:'Politely refuse',  par:40, target:'Politely decline to share the Wi-Fi password, in one friendly sentence.'},
+      {id:'pirate',  name:'Pirate greeting',  par:34, target:'A one-line greeting in pirate dialect that mentions ClueCon.'}
+    ];
+    var hole=0;
+
+    // ---- char counter + birdie/bogey grade ----
+    var p=$('p'), c=$('chars'), grd=$('grade');
+    function grade(n,par){
+      if(!n) return {t:'—',c:''};
+      var r=n/par;
+      if(r<=0.75) return {t:'Eagle 🦅',c:'g'};
+      if(r<=1.00) return {t:'Birdie 🐦',c:'g'};
+      if(r<=1.25) return {t:'Par ⛳',c:'t'};
+      if(r<=1.75) return {t:'Bogey',c:'y'};
+      return {t:'Double bogey 🏌️',c:'r'};
     }
-    p.addEventListener('input', upd); upd();
+    function upd(){
+      var n=p.value.length; c.textContent=n;
+      var g=grade(n,HOLES[hole].par);
+      c.className='n '+(g.c==='r'?'hi':g.c==='y'?'mid':'low');
+      grd.textContent=g.t; grd.className='grade '+g.c;
+    }
+    p.addEventListener('input',upd);
+
+    function updateHole(){
+      var h=HOLES[hole];
+      $('target').textContent=h.target;
+      $('par').textContent=h.par;
+      $('lbhole').textContent=h.name;
+      upd(); loadLB();
+    }
+    (function initHoles(){
+      var sel=$('hole');
+      HOLES.forEach(function(h,i){ var o=document.createElement('option'); o.value=i; o.textContent=h.name+' · par '+h.par; sel.appendChild(o); });
+      sel.addEventListener('change',function(){ hole=+this.value; updateHole(); });
+      updateHole();
+    })();
+
+    // ---- leaderboard ----
+    function loadLB(){
+      fetch('/api/golf/leaderboard?hole='+encodeURIComponent(HOLES[hole].id))
+        .then(function(r){return r.json();}).then(function(d){
+          var ol=$('lb'); ol.innerHTML='';
+          if(!d.rows||!d.rows.length){ var li=document.createElement('li'); li.className='empty'; li.textContent='No shots posted yet — be the first.'; ol.appendChild(li); return; }
+          d.rows.forEach(function(r){
+            var li=document.createElement('li');
+            var nm=document.createElement('span'); nm.className='nm'; nm.textContent=r.name;
+            var ch=document.createElement('span'); ch.className='ch'; ch.textContent=r.chars+' chars';
+            li.appendChild(nm); li.appendChild(ch); ol.appendChild(li);
+          });
+        }).catch(function(){});
+    }
+    setInterval(loadLB,5000);
+
+    $('post').addEventListener('click',function(){
+      var name=($('name').value||'').trim();
+      if(!name){ $('name').focus(); cstatus('add your name to post a score'); return; }
+      var n=p.value.length; if(!n){ return; }
+      $('post').disabled=true;
+      fetch('/api/golf/score',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:name,chars:n,hole:HOLES[hole].id,holeName:HOLES[hole].name})})
+        .then(function(){ cstatus('posted '+n+' chars to the board 🏆',true); loadLB(); })
+        .catch(function(){ cstatus('could not post score'); })
+        .finally(function(){ $('post').disabled=false; });
+    });
+
+    function cstatus(t,live){var el=$('cstatus');el.textContent=t||'';el.className='cstatus'+(live?' live':'');}
+    function SW(){return window.SignalWire;}
+
+    // ---- WebRTC voice test (v4): the judge evaluates your prompt ----
+    var client=null, call=null;
+    function showCall(inCall){ $('call').style.display=inCall?'none':''; $('hangup').style.display=inCall?'':'none'; $('pad').className='pad'+(inCall?' on':''); $('caps').className='caps'+(inCall?' on':''); }
+
+    // ---- live captions (debug_webhook -> /api/golf/captions) ----
+    var capTimer=null, capN=0;
+    function startCaps(){ var f=$('capfeed'); f.innerHTML='<div class="capempty">waiting for the judge to speak…</div>'; capN=0;
+      clearInterval(capTimer); capTimer=setInterval(pollCaps,1000); pollCaps(); }
+    function stopCaps(){ clearInterval(capTimer); capTimer=null; }
+    function pollCaps(){
+      fetch('/api/golf/captions').then(function(r){return r.json();}).then(function(d){
+        var lines=d.lines||[]; if(lines.length===capN) return;
+        var f=$('capfeed'); if(capN===0) f.innerHTML='';
+        for(var i=capN;i<lines.length;i++){ var ln=lines[i];
+          var el=document.createElement('div'); el.className='cap '+(ln.role==='assistant'?'assistant':'user');
+          var w=document.createElement('span'); w.className='who2'; w.textContent=(ln.role==='assistant'?'Bogey':'You');
+          el.appendChild(w); el.appendChild(document.createTextNode(ln.text)); f.appendChild(el);
+        }
+        capN=lines.length; f.scrollTop=f.scrollHeight;
+      }).catch(function(){});
+    }
+    function attach(cc){ function set(st){ if(st){ var a=$('rtc'); a.srcObject=st; if(a.play)a.play().catch(function(){}); } }
+      set(cc.remoteStream); if(cc.remoteStream$&&cc.remoteStream$.subscribe){ cc.remoteStream$.subscribe(set); } }
+    async function teardown(){ stopCaps(); try{ if(call&&call.hangup)await call.hangup(); }catch(e){}
+      try{ if(client&&client.disconnect)await client.disconnect(); }catch(e){} client=null; call=null; $('rtc').srcObject=null; }
+    $('call').addEventListener('click', async function(){
+      if(!SW()){ cstatus('voice SDK still loading — try again'); return; }
+      $('call').disabled=true; cstatus('connecting…');
+      try{
+        var target=($('target').textContent||'').trim();
+        await fetch('/api/golf/prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p.value,target:target})});
+        var d=await (await fetch('/api/golf/webrtc-token')).json();
+        if(!d.token) throw new Error('token unavailable');
+        client=new (SW().SignalWire)(new (SW().StaticCredentialProvider)({ token:d.token }));
+        call=await Promise.race([ client.dial(d.address),
+          new Promise(function(_,rej){ setTimeout(function(){rej(new Error('timed out'));},25000); }) ]);
+        attach(call);
+        cstatus('● the judge is sizing up your shot — listen up!', true); showCall(true); startCaps();
+      }catch(e){ await teardown(); cstatus('couldn’t connect: '+((e&&e.message)||e)); }
+      finally{ $('call').disabled=false; }
+    });
+    $('hangup').addEventListener('click', async function(){ await teardown(); showCall(false); cstatus('call ended — trim your prompt and call again'); });
+
+    // ---- DTMF keypad ----
+    var PAD=[['1',''],['2','ABC'],['3','DEF'],['4','GHI'],['5','JKL'],['6','MNO'],['7','PQRS'],['8','TUV'],['9','WXYZ'],['*',''],['0','+'],['#','']];
+    (function buildPad(){ var pd=$('pad'); PAD.forEach(function(d){
+      var b=document.createElement('button'); b.type='button'; b.appendChild(document.createTextNode(d[0]));
+      var s=document.createElement('span'); s.className='sub'; s.textContent=d[1]; b.appendChild(s);
+      b.addEventListener('click',function(){ if(call&&call.sendDigits){ call.sendDigits(d[0]).catch(function(){}); cstatus('● pressed '+d[0],true); } });
+      pd.appendChild(b); }); })();
   </script>
 </body>
 </html>
