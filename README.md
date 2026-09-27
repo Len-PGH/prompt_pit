@@ -7,7 +7,7 @@
   from their phones — by <b>web</b>, <b>SMS</b>, or a <b>phone call answered by an AI agent</b> — all into one live tally.
 </p>
 
-<p align="center"><i>Built for the ClueCon 2026 Vibe Coding Championship.</i></p>
+<p align="center"><i>Built for the ClueCon 2026 Vibe Code-Off.</i></p>
 
 ![The Stage screen](docs/screenshots/stage.png)
 
@@ -74,16 +74,16 @@ in the booth and the projector updates instantly.
 
 ### 🎛️ Operator — the booth
 
-Drive the whole show from one panel: bracket, timers, six-criteria judging,
-audience voting, the sabotage wheel, and the show-flow phases that transform the
-Stage. Access is a scoped, revocable key.
+Drive the whole show from one panel: bracket, timers, completion-checklist +
+weighted-rubric judging, audience voting, the surprise-modifier reveal, and the
+show-flow phases that transform the Stage. Access is a scoped, revocable key.
 
 ![Operator control panel](docs/screenshots/operator.png)
 
 ### 📱 Vote & 📝 Register — the audience and contestants
 
 The vote page is one tap. The register page is a full contestant portal: the
-format, what to bring, a challenge picker, starter kits, and sign-up (name +
+format, what to bring, a prompt-bank picker, and sign-up (name +
 GitHub, with email kept private).
 
 <p align="center">
@@ -95,8 +95,8 @@ GitHub, with email kept private).
 ### 📊 Stats — the receipts
 
 A live, PII-safe leaderboard: the bracket, per-contestant votes **broken down by
-channel** (web / SMS / phone), judges' points, and a log of every sabotage that
-was spun.
+channel** (web / SMS / phone), judges' points, and a log of every surprise
+modifier that was revealed.
 
 ![Live stats page](docs/screenshots/stats.png)
 
@@ -253,8 +253,9 @@ PUBLIC URL (web + voice + sms, one tunnel):  https://<something>.trycloudflare.c
    into the bracket.
 2. **Introduce** — the Stage shows the matchup and the active challenge.
 3. **Compete** — start the countdown; contestants build live with their AI copilot.
-4. **Judge** — score the six criteria (Functionality, Creativity, Crowd
-   Reaction, Adaptability, Entertainment, Would It Ship?) from the operator panel.
+4. **Judge** — tick each prompt's binary completion criteria, then set the
+   Usability / Quality / Creativity / Presentation sliders; the panel computes a
+   weighted 0–100 total (Completion 50 · Usability 20 · Quality 15 · Creativity 10 · Presentation 5).
 5. **Vote** — open voting; the audience votes by web, SMS, or phone.
 6. **Declare** — one button combines judges' scores + audience votes, crowns the
    round winner, and advances the bracket.
@@ -300,14 +301,14 @@ Built to be safe to run live in front of a crowd:
 │   ├── agent.py           # SignalWire Agents-SDK voice agent + SMS webhook (SWML)
 │   ├── configure_number.py#   points the number's Voice/SMS handlers at the tunnel
 │   └── requirements.txt
-├── scaffolds/             # Copy-ready starter kits shown to registered contestants
+├── docs/                  # the Vibe Code-Off source playbooks + screenshots
 ├── Dockerfile             # single image: Node + Python venv + cloudflared + tini
 ├── entrypoint.sh          # boots agent + web + tunnel, then configures the number
 ├── run.sh                 # build + run helper
 ├── .env.example           # config template (copy to .env)
-└── CHALLENGES.md          # the challenge catalog + starter scaffolds
+└── CHALLENGES.md          # the prompt banks + judging rubric + modifier bank
 ```
 
 ---
 
-<p align="center"><sub>The Prompt Pit · ClueCon 2026 · Vibe Coding Championship</sub></p>
+<p align="center"><sub>The Prompt Pit · ClueCon 2026 · Vibe Code-Off</sub></p>

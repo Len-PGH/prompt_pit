@@ -77,9 +77,15 @@
   .clockmini { font-family:var(--mono); font-size:40px; font-weight:700; text-align:center; margin:4px 0 12px; }
   .clockmini.run { color: var(--green); }
 
-  .score-grid { display:grid; grid-template-columns: 1fr auto auto; gap:6px 10px; align-items:center; }
+  .score-grid { display:grid; grid-template-columns: auto 1fr auto; gap:6px 10px; align-items:center; }
   .score-grid .cl { font-size:13px; color:var(--muted); }
   .score-grid .val { font-family:var(--mono); width:34px; text-align:center; }
+  .score-grid .sc-sec { grid-column:1 / -1; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-top:8px; border-top:1px solid var(--line); padding-top:8px; }
+  .score-grid .sc-sec.muted { border-top:none; margin-top:2px; text-transform:none; letter-spacing:0; }
+  .score-grid .ck { display:flex; justify-content:center; }
+  .score-grid .ck input { width:20px; height:20px; cursor:pointer; accent-color:var(--a); }
+  .score-grid .val.tot { font-weight:800; color:var(--a); width:auto; min-width:38px; }
+  .score-grid .cl.tot-l { font-weight:700; color:var(--txt); }
   .stepper { display:flex; gap:4px; }
   .stepper button { width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:#222436; color:var(--txt); font-weight:700; }
   .side-tag { font-size:11px; letter-spacing:0.01em; text-transform:none; font-weight:700; }
@@ -271,7 +277,7 @@
 
     <!-- SCORING -->
     <div class="panel card" data-scope="scoring">
-      <h3>Judge Scores <span class="hint">0–10 each</span></h3>
+      <h3>Judging <span class="hint">completion ✓ + weighted rubric → /100</span></h3>
       <div class="row" style="justify-content:space-between">
         <span class="side-tag a" id="sc-a-name">Station A</span>
         <span class="side-tag b" id="sc-b-name">Station B</span>
@@ -294,7 +300,7 @@
 
     <!-- SABOTAGE -->
     <div class="panel card" data-scope="sabotage">
-      <h3>Sabotage Wheel</h3>
+      <h3>Surprise Modifier <span class="hint">reveal one mid-round</span></h3>
       <div class="row">
         <button class="btn red" id="sab-spin">🎡 SPIN</button>
         <button class="btn ghost small" id="sab-clear">Clear result</button>

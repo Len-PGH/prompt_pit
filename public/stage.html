@@ -196,6 +196,7 @@
   #preshow {
     position: fixed; inset: 0; z-index: 45; display: none;
     flex-direction: column; padding: clamp(24px,4vw,64px);
+    overflow-y: auto;   /* scroll if the picks board is taller than the screen */
     background:
       radial-gradient(1000px 600px at 15% 10%, rgba(64,224,208,0.10), transparent 60%),
       radial-gradient(1000px 600px at 85% 90%, rgba(247,42,114,0.10), transparent 60%),
@@ -203,26 +204,39 @@
   }
   #preshow.show { display: flex; }
   .ps-head { display: flex; align-items: center; justify-content: space-between; }
-  .ps-body { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: clamp(30px,5vw,90px); align-items: center; }
+  /* `safe center` keeps it centered when it fits, but falls back to top-aligned
+     (instead of clipping the top) once the picks list overflows the screen. */
+  .ps-body { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: clamp(30px,5vw,90px); align-items: start; padding-bottom: clamp(12px,2vh,28px); }
   @media (max-width: 900px) { .ps-body { grid-template-columns: 1fr; } }
-  .ps-qr { text-align: center; }
+  /* Drop the QR down so its top lines up with the round cards (past the caption). */
+  .ps-qr { text-align: center; margin-top: clamp(30px,4.2vh,58px); }
   .ps-qr img { width: clamp(220px,26vw,420px); height: auto; background: #fff; padding: 14px; border-radius: 20px; box-shadow: 0 0 60px rgba(64,224,208,0.35); }
   .ps-scan { margin-top: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; font-size: clamp(20px,2.4vw,34px); color: var(--a); }
   .ps-url { margin-top: 8px; color: var(--muted); font-size: clamp(12px,1.2vw,18px); word-break: break-all; }
-  .ps-count { line-height: 0.9; margin-bottom: clamp(18px,3vh,44px); }
+  .ps-count { line-height: 0.9; margin-top: clamp(16px,3vh,38px); }
   .ps-count span {
-    font-family: var(--mono); font-weight: 700; font-size: clamp(70px,13vw,190px);
+    font-family: var(--mono); font-weight: 700; font-size: clamp(56px,9vw,150px);
     background: linear-gradient(180deg,#fff,#6e9eff); -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 0 40px rgba(96,27,230,0.4));
   }
-  .ps-count small { display: block; color: var(--muted); text-transform: uppercase; letter-spacing: 0.24em; font-size: clamp(12px,1.4vw,20px); margin-top: 10px; }
-  .ps-bars-h { color: var(--gold); text-transform: uppercase; letter-spacing: 0.2em; font-size: clamp(11px,1.2vw,16px); font-weight: 700; margin-bottom: 12px; }
-  .ps-bars { display: flex; flex-direction: column; gap: clamp(8px,1.4vh,16px); }
-  .psrow { display: grid; grid-template-columns: minmax(240px, 40%) 1fr auto; gap: 14px 18px; align-items: center; }
-  .psrow .lbl { font-weight: 700; text-transform: uppercase; font-size: clamp(13px,1.4vw,20px); line-height: 1.2; white-space: normal; overflow-wrap: anywhere; }
-  .psrow .track { height: clamp(14px,1.8vw,26px); border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
-  .psrow .track > i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg,#044EF4,var(--a)); box-shadow: var(--glow-a); transition: width 0.6s cubic-bezier(.2,.8,.2,1); }
-  .psrow .num { font-family: var(--mono); font-weight: 700; font-size: clamp(18px,2.2vw,34px); color: var(--a); min-width: 1.4em; text-align: right; }
+  .ps-count small { display: block; color: var(--muted); text-transform: uppercase; letter-spacing: 0.24em; font-size: clamp(11px,1.3vw,18px); margin-top: 8px; }
+  .ps-bars-h { color: var(--muted); text-transform: uppercase; letter-spacing: 0.2em; font-size: clamp(11px,1.2vw,16px); font-weight: 700; margin-bottom: clamp(14px,2vh,24px); }
+  /* Grouped challenge menu: one CARD per round (Quarterfinals / Semifinals /
+     Championship), side by side; pick counts light up only once someone picks. */
+  .ps-bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(14px,1.5vw,26px); align-items: stretch; }
+  @media (max-width: 1100px) { .ps-bars { grid-template-columns: 1fr; } }
+  .ps-sec { background: rgba(255,255,255,0.035); border: 1px solid var(--line); border-radius: 18px; padding: clamp(14px,1.3vw,22px) clamp(16px,1.3vw,24px); }
+  .ps-sec-h { text-transform: uppercase; letter-spacing: 0.22em; font-weight: 800; font-size: clamp(12px,1.15vw,17px); margin-bottom: clamp(8px,1.1vh,13px); }
+  .ps-sec-h .n { font-family: var(--mono); font-weight: 700; opacity: 0.55; margin-left: 8px; }
+  .ps-sec-h.QF { color: var(--a); }
+  .ps-sec-h.SF { color: #c9a6ff; }
+  .ps-sec-h.CH { color: var(--gold); }
+  .ps-grid { display: flex; flex-direction: column; }
+  .pchip { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: clamp(6px,0.9vh,10px) 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .pchip .lbl { font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; font-size: clamp(11px,1vw,15px); line-height: 1.15; color: var(--txt); overflow-wrap: anywhere; }
+  .pchip .num { font-family: var(--mono); font-weight: 700; font-size: clamp(12px,1.1vw,17px); color: var(--muted); opacity: 0.5; }
+  .pchip.has .lbl { color: #fff; }
+  .pchip.has .num { color: var(--a); opacity: 1; }
 
   /* voting overlay QR */
   .qr-float {
@@ -364,7 +378,7 @@
           </div>
         </div>
         <div class="votebox">
-          <div class="score-total">Judges <b id="fa-score">0</b> / 60</div>
+          <div class="score-total">Score <b id="fa-score">0</b> / 100</div>
           <div class="votecount" id="fa-votes">0<small>votes</small></div>
           <div class="bar"><span id="fa-bar"></span></div>
         </div>
@@ -384,7 +398,7 @@
           </div>
         </div>
         <div class="votebox">
-          <div class="score-total">Judges <b id="fb-score">0</b> / 60</div>
+          <div class="score-total">Score <b id="fb-score">0</b> / 100</div>
           <div class="votecount" id="fb-votes">0<small>votes</small></div>
           <div class="bar"><span id="fb-bar"></span></div>
         </div>
@@ -413,7 +427,7 @@
 <div id="standby">
   <div class="sb-inner">
     <div class="logo" style="font-size:clamp(44px,8vw,96px)"><span class="the">The</span><span class="pit">Prompt Pit</span></div>
-    <div class="sb-sub" id="sb-sub">ClueCon 2026 · Vibe Coding Championship</div>
+    <div class="sb-sub" id="sb-sub">ClueCon 2026 · Vibe Code-Off</div>
     <div class="sb-tag">The battles begin shortly…</div>
     <div class="sb-next" id="sb-next"></div>
   </div>
@@ -430,9 +444,9 @@
       <img id="ps-qr-img" alt="Registration QR code" />
       <div class="ps-scan">Scan to enter</div>
       <div class="ps-url mono" id="ps-url"></div>
+      <div class="ps-count"><span id="ps-count">0</span><small>contestants in the pit</small></div>
     </div>
     <div class="ps-stats">
-      <div class="ps-count"><span id="ps-count">0</span><small>contestants in the pit</small></div>
       <div class="ps-bars-h">Which challenges will you choose?</div>
       <div class="ps-bars" id="ps-bars"></div>
     </div>
@@ -456,9 +470,9 @@
 
 <!-- sabotage overlay -->
 <div class="overlay" id="sab">
-  <div class="sab-title">⚡ Audience Sabotage ⚡</div>
+  <div class="sab-title">⚡ Surprise Modifier ⚡</div>
   <div class="reel" id="reel"><div class="slot" id="reel-slot">—</div></div>
-  <div class="sab-hint" id="sab-hint">Spinning the wheel of chaos…</div>
+  <div class="sab-hint" id="sab-hint">Revealing the twist…</div>
 </div>
 
 <!-- random draw overlay -->
@@ -482,7 +496,7 @@
   <div class="crown-big">👑</div>
   <div class="champ-label">Champion of The Prompt Pit</div>
   <div class="champ-name" id="champ-name">—</div>
-  <div class="badge">🏆 Vibe Coding Championship 🏆</div>
+  <div class="badge">🏆 Vibe Code-Off 🏆</div>
 </div>
 <div class="confetti" id="confetti"></div>
 

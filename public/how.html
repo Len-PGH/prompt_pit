@@ -74,11 +74,11 @@
     lock-step over WebSockets. Change something in the booth and the projector
     updates instantly.</p>
     <div class="cards">
-      <div class="card"><div class="ic">🖥️</div><h3>Stage <code>/stage</code></h3><p>The big screen: matchup, countdown, scores, sabotage wheel, QR codes, champion celebration.</p></div>
+      <div class="card"><div class="ic">🖥️</div><h3>Stage <code>/stage</code></h3><p>The big screen: matchup, countdown, scores, surprise modifiers, QR codes, champion celebration.</p></div>
       <div class="card"><div class="ic">🎛️</div><h3>Operator <code>/operator</code></h3><p>Booth control — bracket, timers, judging, voting, show-flow phases. Key-gated with scoped access.</p></div>
       <div class="card"><div class="ic">📱</div><h3>Vote <code>/vote</code></h3><p>What the audience opens from the on-screen QR. One tap for Station A or B.</p></div>
       <div class="card"><div class="ic">📝</div><h3>Register <code>/register</code></h3><p>Contestant portal: format, what to bring, challenge picker, starter kits, sign-up.</p></div>
-      <div class="card"><div class="ic">📊</div><h3>Stats <code>/stats</code></h3><p>Live leaderboard: bracket results, votes by channel per contestant, sabotage log.</p></div>
+      <div class="card"><div class="ic">📊</div><h3>Stats <code>/stats</code></h3><p>Live leaderboard: bracket results, votes by channel per contestant, modifier log.</p></div>
     </div>
 
     <h2><span class="n">02</span>Three ways to vote, one tally</h2>
@@ -114,7 +114,7 @@
       <li><b>Register &amp; draw</b> <span>— contestants sign up at <code>/register</code>; the operator draws 8 into the bracket.</span></li>
       <li><b>Introduce</b> <span>— Stage shows the matchup and the active challenge.</span></li>
       <li><b>Compete</b> <span>— the operator starts the countdown; contestants build live.</span></li>
-      <li><b>Judge</b> <span>— judges score on six criteria from the operator panel.</span></li>
+      <li><b>Judge</b> <span>— judges tick each prompt's completion checklist + set the weighted rubric (→ /100) from the operator panel.</span></li>
       <li><b>Vote</b> <span>— voting opens; the audience votes by web, SMS, or phone.</span></li>
       <li><b>Declare</b> <span>— one button combines judges' scores + audience votes and crowns the round winner, advancing the bracket.</span></li>
       <li><b>Champion</b> <span>— win the final and the Stage erupts.</span></li>
@@ -135,7 +135,7 @@
       <a href="/operator">Operator →</a>
     </div>
 
-    <footer>The Prompt Pit · ClueCon 2026 · Vibe Coding Championship</footer>
+    <footer>The Prompt Pit · ClueCon 2026 · Vibe Code-Off</footer>
   </div>
 </body>
 </html>

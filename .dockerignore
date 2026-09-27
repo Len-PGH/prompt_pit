@@ -7,9 +7,6 @@ scratchpad
 *.png
 .DS_Store
 
-# Ship contestant-safe starters into the image, but NEVER the answer key.
-scaffolds/*.SOLUTION.yaml
-
 # Never bake config/secrets into the image — passed at runtime via --env-file
 .env
 .env.example

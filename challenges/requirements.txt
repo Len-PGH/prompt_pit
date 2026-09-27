@@ -1,5 +1,0 @@
-signalwire-sdk
-fastapi
-uvicorn
-httpx
-python-multipart
