@@ -1,7 +1,0 @@
-.env
-.env.local
-__pycache__/
-*.pyc
-data/
-scratchpad/
-.DS_Store
