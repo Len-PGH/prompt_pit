@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * The Prompt Pit — live control server for ClueCon 2026 Vibe Coding Championship.
+ * The Prompt Pit — live control server for ClueCon 2026 Vibe Code-Off.
  *
  * Serves three surfaces over one HTTP + Socket.IO endpoint:
  *   /operator  private control panel (key-gated)
@@ -88,9 +88,23 @@ function restoreSnapshot() {
     // Refresh static catalog from code so challenge edits/deploys take effect.
     state.challenges = CHALLENGES;
     state.criteria = CRITERIA;
+    // A snapshot from a prior challenge set may name a prompt that no longer
+    // exists — fall back to the first prompt so scoring/UI stay consistent.
+    if (!CHALLENGES.find((c) => c.id === state.challengeId)) {
+      state.challengeId = CHALLENGES[0].id;
+    }
     // Backfill the active-challenge set for older snapshots (default: all).
-    if (!Array.isArray(state.activeChallengeIds)) {
+    if (!Array.isArray(state.activeChallengeIds) ||
+        !state.activeChallengeIds.some((id) => CHALLENGES.find((c) => c.id === id && c.selectable))) {
       state.activeChallengeIds = CHALLENGES.filter((c) => c.selectable).map((c) => c.id);
+    }
+    // Ensure every match score has the new shape (checks[] + slider keys).
+    for (const mid of Object.keys(state.matches || {})) {
+      for (const side of ['a', 'b']) {
+        const sc = state.matches[mid].scores[side] || {};
+        if (!Array.isArray(sc.checks)) sc.checks = [];
+        state.matches[mid].scores[side] = sc;
+      }
     }
     // Always reflect the current env's voting number (may change between runs).
     state.voteNumber = process.env.VOTE_NUMBER || '';
@@ -134,76 +148,428 @@ const DEFAULT_CONTESTANTS = [
   'Contestant 5', 'Contestant 6', 'Contestant 7', 'Contestant 8',
 ];
 
+// Per-round build time (seconds): Quarterfinal 7 min, Semifinal 9 min, Championship 11 min.
+const ROUND_SEC = { QF: 420, SF: 540, CH: 660 };
+
+// The Vibe Code-Off prompt bank. Each prompt is an OUTCOME with 4–5 BINARY
+// completion criteria judges tick off live (only demonstrated behavior counts).
+// round: 'QF' | 'SF' | 'CH'. `test` is the announcer's on-stage completion test.
 const CHALLENGES = [
+  // ---- Quarterfinals (one clear interaction, immediately visible result) ----
   {
-    id: 'worst-ivr',
-    selectable: true,
-    title: 'Build the Worst IVR',
-    tagline: 'Create the most frustrating phone tree imaginable.',
-    brief: 'Design a phone menu so infuriating it loops forever, transfers to itself, and never lets a human through. Judged on humor, creativity, and audience groans.',
+    id: 'excuse-generator', round: 'QF', selectable: true,
+    title: 'The Excuse Generator',
+    tagline: 'Situation in, three labeled excuses out.',
+    brief: 'Build an app that accepts a situation and generates three excuses, each labeled Believable, Risky, or Absolutely Not, with a way to copy one.',
+    completion: [
+      'Accepts a situation from the user',
+      'Generates three excuses',
+      'Labels each Believable / Risky / Absolutely Not',
+      'Lets the user copy one excuse',
+    ],
+    test: 'Enter "I missed the morning meeting" → three labeled, copyable results.',
   },
   {
-    id: 'rogue-agent',
-    selectable: true,
-    title: 'AI Voice Agent Gone Rogue',
-    tagline: 'A support agent that slowly becomes emotionally unstable.',
-    brief: 'Build a fake AI support agent that starts helpful and gradually spirals into an existential crisis. Strong potential for live comedy and improv.',
+    id: 'exec-decision', round: 'QF', selectable: true,
+    title: 'Executive Decision Machine',
+    tagline: 'Picks for you, then regrets it on demand.',
+    brief: 'Build an app that accepts a decision and up to three options, selects one with a short explanation, and includes a "Regret This Decision" button that chooses again.',
+    completion: [
+      'Accepts a decision and up to three options',
+      'Selects one option',
+      'Gives a short explanation',
+      '"Regret This Decision" button chooses again',
+    ],
+    test: 'Enter three lunch options → a decision with reasoning, then regret it.',
   },
   {
-    id: 'fix-disaster',
-    selectable: true,
-    title: 'Fix This Disaster',
-    tagline: 'Intentionally broken code. First to make it work wins.',
-    brief: 'You receive sabotaged code / prompts. First contestant to get it functional takes the round.',
+    id: 'landing-page', round: 'QF', selectable: true,
+    title: 'Emergency Landing Page',
+    tagline: 'Responsive launch page for a fake product.',
+    brief: 'Build a responsive landing page for a fictional product announced by the host: product name + headline, three benefits, a call-to-action, and one interactive element or state change.',
+    completion: [
+      'Product name and headline',
+      'Three benefits',
+      'A call-to-action button',
+      'One interactive element, animation, or state change',
+    ],
+    test: 'e.g. CloudPillow, the first pillow with enterprise observability.',
   },
   {
-    id: 'prompt-golf',
-    selectable: true,
-    title: 'Prompt Golf',
-    tagline: 'Best output, fewest prompt characters.',
-    brief: 'Hit the target output using the shortest prompt possible. Lowest character count that lands the goal wins.',
+    id: 'bad-idea-detector', round: 'QF', selectable: true,
+    title: 'Bad Idea Detector',
+    tagline: 'Scores your idea 0–100 and reacts.',
+    brief: 'Build an app that accepts an idea, scores it 0–100, shows at least three reasons, and shows a different visual state for good vs bad ideas.',
+    completion: [
+      'Accepts an idea',
+      'Scores it from 0 to 100',
+      'Displays at least three reasons for the score',
+      'Different visual state for good vs bad ideas',
+    ],
+    test: 'Evaluate "Uber, but for emotional support raccoons."',
   },
   {
-    id: 'carrier-or-chaos',
-    selectable: true,
-    title: 'Carrier-Grade or Chaos?',
-    tagline: 'Build a telecom dashboard / alert / call flow.',
-    brief: 'Build something operational — a dashboard, telecom alert, or call flow. Audience votes whether they would trust it in production.',
+    id: 'meeting-cost', round: 'QF', selectable: true,
+    title: 'Meeting Cost Calculator',
+    tagline: 'Turns meetings into dollars (and pizzas).',
+    brief: 'Build a calculator that accepts attendee count, meeting length, and average hourly compensation, then shows total cost, cost per minute, and a humorous equivalent.',
+    completion: [
+      'Accepts attendees, length, and average hourly comp',
+      'Displays total meeting cost',
+      'Displays cost per minute',
+      'Displays a humorous equivalent (coffees, pizzas, subscriptions)',
+    ],
   },
   {
-    id: 'audience-sabotage',
-    selectable: false,
-    title: 'Finale: Audience Sabotage',
-    tagline: 'The crowd adds a new requirement every few minutes.',
-    brief: 'Head-to-head finale. Spin the Sabotage Wheel to inject surprise requirements mid-build. Adapt or die.',
+    id: 'support-desk', round: 'QF', selectable: true,
+    title: 'Tiny Support Desk',
+    tagline: 'Complaint in, triaged ticket + reply out.',
+    brief: 'Build a support-ticket interface that accepts a complaint, assigns a priority and category, and generates a suggested first response.',
+    completion: [
+      'Accepts a customer complaint',
+      'Assigns a priority',
+      'Assigns a category',
+      'Generates a suggested first response',
+    ],
+    test: 'Submit "Our production API has been returning errors for 20 minutes."',
   },
-];
+  {
+    id: 'audience-poll', round: 'QF', selectable: true,
+    title: 'Audience Poll',
+    tagline: 'Live-looking poll with instant results.',
+    brief: 'Build a live-looking poll with at least three choices that allows voting, prevents accidental double submission in the same session, and updates visible results immediately.',
+    completion: [
+      'Displays at least three choices',
+      'Allows voting',
+      'Prevents double submission in the same session',
+      'Updates the visible results immediately',
+    ],
+  },
+  {
+    id: 'password-judge', round: 'QF', selectable: true,
+    title: 'Password Judgment Engine',
+    tagline: 'Rates your password and roasts it.',
+    brief: 'Build a password evaluator that shows strength, explains at least two weaknesses, and suggests a stronger alternative without displaying the original password elsewhere.',
+    completion: [
+      'Accepts a password',
+      'Displays strength',
+      'Explains at least two weaknesses',
+      'Suggests a stronger alternative (without echoing the original)',
+    ],
+  },
+  {
+    id: 'reverse-todo', round: 'QF', selectable: true,
+    title: 'Reverse To-Do List',
+    tagline: 'Reward things you already did.',
+    brief: 'Build an app where users enter something they already completed: add it to a list, award points, show a changing congratulatory message, and allow an item to be removed.',
+    completion: [
+      'Adds the accomplishment to a list',
+      'Awards points',
+      'Displays a changing congratulatory message',
+      'Allows an item to be removed',
+    ],
+  },
+  {
+    id: 'corporate-translator', round: 'QF', selectable: true,
+    title: 'Corporate Translator',
+    tagline: 'Plain ⇄ corporate, both directions.',
+    brief: 'Build a translator that converts plain language into corporate language and back, with a visible way to switch direction and meaning preserved enough to demonstrate.',
+    completion: [
+      'Converts plain language into corporate language',
+      'Converts corporate language back into blunt language',
+      'Visible way to switch direction',
+      'Preserves the meaning across the transformation',
+    ],
+    test: '"We have no idea why it broke" → corporate → back to blunt.',
+  },
 
+  // ---- Semifinals (multiple states, a short workflow, or light integration) ----
+  {
+    id: 'incident-commander', round: 'SF', selectable: true,
+    title: 'Incident Commander',
+    tagline: 'Incident → severity → checklist → update.',
+    brief: 'Build an incident-management dashboard that accepts an incident, assigns severity, generates a response checklist, tracks items complete/incomplete, and produces a customer status update.',
+    completion: [
+      'Accepts an incident description',
+      'Assigns severity',
+      'Generates an initial response checklist',
+      'Tracks at least three checklist items complete/incomplete',
+      'Produces a customer-facing status update',
+    ],
+    test: 'Use "Customers cannot complete checkout."',
+  },
+  {
+    id: 'voice-of-customer', round: 'SF', selectable: true,
+    title: 'Voice of the Customer',
+    tagline: 'Classify comments, find the fire.',
+    brief: 'Build an app that accepts multiple customer comments, classifies each positive/neutral/negative, groups them into themes, identifies the most urgent issue, and produces a one-paragraph executive summary.',
+    completion: [
+      'Classifies each comment positive / neutral / negative',
+      'Groups comments into themes',
+      'Identifies the most urgent issue',
+      'Produces a one-paragraph executive summary',
+    ],
+  },
+  {
+    id: 'escape-room', round: 'SF', selectable: true,
+    title: 'Escape Room',
+    tagline: 'Two-clue puzzle you can actually win.',
+    brief: 'Build a small interactive puzzle with at least two sequential clues, a state that prevents skipping to the end, a visible win condition, a reset button, and a theme announced at the start.',
+    completion: [
+      'At least two sequential clues',
+      'State prevents skipping directly to the end',
+      'A visible win condition',
+      'A reset button',
+    ],
+  },
+  {
+    id: 'inbox-triage', round: 'SF', selectable: true,
+    title: 'Inbox Triage Simulator',
+    tagline: 'Sort six messages, reply to one.',
+    brief: 'Build an interface with at least six sample messages that can be categorized Urgent/Reply/Delegate/Ignore, allows changing a category, generates a reply for one selected message, and shows a count per category.',
+    completion: [
+      'Shows at least six messages',
+      'Categorizes as Urgent / Reply / Delegate / Ignore',
+      'Allows the user to change a category',
+      'Generates a reply for one selected message',
+      'Displays a count for each category',
+    ],
+  },
+  {
+    id: 'travel-disaster', round: 'SF', selectable: true,
+    title: 'Travel Disaster Assistant',
+    tagline: 'Recovery plan when the trip melts down.',
+    brief: 'Build an app that accepts a destination, disruption, time constraint, and priority (cheapest/fastest/least annoying) and produces a recovery plan with at least three ordered actions that changes when priority changes.',
+    completion: [
+      'Accepts destination, disruption, time constraint, and priority',
+      'Produces a recovery plan with at least three ordered actions',
+      'Actions are ordered',
+      'Plan changes when the priority changes',
+    ],
+  },
+  {
+    id: 'api-status', round: 'SF', selectable: true,
+    title: 'API Status Dashboard',
+    tagline: 'Three services, live states, incidents.',
+    brief: 'Build a dashboard for at least three fictional services showing operational/degraded/down states, allowing a state change, maintaining a visible incident history, and calculating overall system status.',
+    completion: [
+      'Shows at least three services with operational/degraded/down',
+      "Allows a service's state to be changed",
+      'Maintains a visible incident history',
+      'Calculates overall system status',
+    ],
+  },
+  {
+    id: 'review-investigator', round: 'SF', selectable: true,
+    title: 'Product Review Investigator',
+    tagline: 'Score reviews, sniff out the fakes.',
+    brief: 'Build an app that accepts a collection of reviews and produces an overall score, extracts repeated complaints and praise, flags at least one suspicious review, and recommends buy or skip.',
+    completion: [
+      'Produces an overall score',
+      'Extracts repeated complaints',
+      'Extracts repeated praise',
+      'Flags at least one suspicious or low-information review',
+      'Recommends whether to buy the product',
+    ],
+  },
+  {
+    id: 'smart-queue', round: 'SF', selectable: true,
+    title: 'Smart Queue',
+    tagline: 'Route tasks to the right workers.',
+    brief: 'Build a queue where tasks have urgency and required skills, workers have different skills, the app assigns each task to an appropriate worker, and a newly added task is routed live.',
+    completion: [
+      'Tasks have urgency and required skills',
+      'Workers have different skills',
+      'Assigns each task to an appropriate worker',
+      'A newly added task is routed appropriately',
+    ],
+    test: 'Include at least three workers and five tasks.',
+  },
+  {
+    id: 'choose-disaster', round: 'SF', selectable: true,
+    title: 'Choose Your Own Disaster',
+    tagline: 'Branching story with real consequences.',
+    brief: 'Build an interactive story where the user makes at least three decisions that change later choices or results, with at least two endings and a final screen that summarizes the path.',
+    completion: [
+      'User makes at least three decisions',
+      'Decisions change later choices or results',
+      'At least two endings',
+      "Final screen summarizes the user's decisions",
+    ],
+  },
+  {
+    id: 'networking-assistant', round: 'SF', selectable: true,
+    title: 'Conference Networking Assistant',
+    tagline: 'Match people, write the opener.',
+    brief: "Build an app that accepts a person's role, interests, and objective, suggests three people from a supplied attendee list, explains each match, and generates an opening line for the selection.",
+    completion: [
+      'Accepts a role, interests, and objective',
+      'Suggests three people from a supplied attendee list',
+      'Explains each match',
+      'Generates an opening line for the selected person',
+    ],
+  },
+
+  // ---- Championship (complete mini-product, end-to-end demonstration) ----
+  {
+    id: 'build-the-company', round: 'CH', selectable: true,
+    title: 'Build the Company',
+    tagline: 'A whole product for a ridiculous startup.',
+    brief: 'The host announces a ridiculous startup. Build a working product with a landing/onboarding screen, one core workflow, meaningful generated output, persistent session state, and a polished success screen.',
+    completion: [
+      'A landing or onboarding screen',
+      'One core product workflow',
+      'Meaningful generated or calculated output',
+      'Persistent state during the session',
+      'A polished success screen',
+    ],
+    test: 'e.g. Compliance Clown — explains regulatory violations with balloon animals.',
+  },
+  {
+    id: 'rescue-business', round: 'CH', selectable: true,
+    title: 'Rescue This Business',
+    tagline: 'Diagnose, prioritize, project the turnaround.',
+    brief: 'Given a struggling business (description, three complaints, basic numbers, one constraint), build an app that diagnoses the primary problem, recommends and prioritizes three actions, creates a customer-facing artifact, and shows a before-and-after projection.',
+    completion: [
+      'Diagnoses the primary problem',
+      'Recommends three actions',
+      'Prioritizes those actions',
+      'Creates one customer-facing artifact',
+      'Shows a simple before-and-after projection',
+    ],
+  },
+  {
+    id: 'realtime-ops', round: 'CH', selectable: true,
+    title: 'Real-Time Operations Center',
+    tagline: 'Events arrive; operator resolves them.',
+    brief: 'Build an operations dashboard that displays incoming events (simulated but visibly arriving/changing over time), classifies severity, updates visible metrics, lets an operator acknowledge or resolve an event, and generates a final incident summary.',
+    completion: [
+      'Displays incoming events that visibly arrive or change over time',
+      'Classifies events by severity',
+      'Updates visible metrics',
+      'Operator can acknowledge or resolve an event',
+      'Generates a final incident summary',
+    ],
+  },
+  {
+    id: 'impossible-concierge', round: 'CH', selectable: true,
+    title: 'The Impossible Concierge',
+    tagline: 'Untangle a request that conflicts with itself.',
+    brief: 'Build a concierge that accepts a complicated request with multiple constraints: extract the constraints, produce a plan, identify at least one conflict, ask for or simulate one clarification, and revise the plan.',
+    completion: [
+      'Extracts the constraints',
+      'Produces a plan',
+      'Identifies at least one conflict between constraints',
+      'Asks for or simulates one clarification',
+      'Revises the plan based on the answer',
+    ],
+    test: 'e.g. dinner for 12 tonight, under $40 each, two vegans, one GF, one who won\'t cross a bridge.',
+  },
+  {
+    id: 'human-vs-bureaucracy', round: 'CH', selectable: true,
+    title: 'Human Versus Bureaucracy',
+    tagline: 'Guide a user through absurd red tape.',
+    brief: 'Build an assistant that guides a user through a fictional bureaucratic process: ask for required info, validate at least two fields, show progress through multiple steps, detect missing information, and produce a completed application or action plan.',
+    completion: [
+      'Asks for required information',
+      'Validates at least two fields',
+      'Shows progress through multiple steps',
+      'Detects missing information',
+      'Produces a completed application or action plan',
+    ],
+    test: 'e.g. obtain a dragon permit or register a time machine.',
+  },
+  {
+    id: 'war-room', round: 'CH', selectable: true,
+    title: 'Multi-Agent War Room',
+    tagline: 'Three roles argue, then decide.',
+    brief: 'Build a system where at least three named roles (e.g. engineer, finance, customer advocate) each recommend an action on the same problem, disagreements are identified, a combined decision is produced, and changing one fact reruns the decision.',
+    completion: [
+      'Produces a recommendation from each of three roles',
+      'Identifies disagreements',
+      'Produces a final combined decision',
+      'Changing one fact reruns the decision',
+    ],
+  },
+  {
+    id: 'fix-broken-product', round: 'CH', selectable: true,
+    title: 'Fix the Broken Product',
+    tagline: 'Repair a broken starter, then extend it.',
+    brief: 'Given a deliberately incomplete starter app/API, diagnose the problem, restore the primary workflow, add one host-announced feature, improve user-visible error handling, and demonstrate both a success and a failure case.',
+    completion: [
+      'Diagnoses the problem',
+      'Restores the primary workflow',
+      'Adds one missing feature announced by the host',
+      'Improves user-visible error handling',
+      'Demonstrates both success and failure cases',
+    ],
+  },
+  {
+    id: 'build-for-audience', round: 'CH', selectable: true,
+    title: 'Build for the Audience',
+    tagline: 'The crowd picks the ingredients. Finale.',
+    brief: 'The audience selects a user type, a problem, a personality/visual theme, and one strange mandatory feature. Build a working app that serves the user, solves the problem, incorporates the theme, implements the feature, and completes one end-to-end workflow.',
+    completion: [
+      'Clearly serves the selected user',
+      'Solves the selected problem',
+      'Incorporates the selected theme',
+      'Implements the mandatory feature',
+      'Completes one end-to-end workflow',
+    ],
+  },
+].map((c) => ({ ...c, suggestedSec: ROUND_SEC[c.round] || 420 }));
+
+// Surprise Modifier Bank — reveal ONE mid-way through a semifinal or championship.
+// Mix of Practical (adaptability), Chaos (keep-a-straight-face), and Hostile Host
+// (invalidate/complicate) modifiers from the playbook.
 const DEFAULT_SABOTAGE = [
-  'Pirate voice mode — everything must sound like a pirate',
-  'Respond ONLY in SIP error codes',
-  'Upsell caller ID on every interaction',
-  'Add hold music that is just kazoo',
-  'The agent now speaks exclusively in haiku',
-  'Every response must rhyme',
-  'Add a mandatory 10-second dramatic pause',
-  'Convert all output to ALL CAPS SHOUTING',
-  'The IVR now insults the caller (politely)',
-  'Everything must reference cats',
-  'Add a surprise German translation step',
-  'The agent is convinced it is a lighthouse',
-  'Charge the caller $0.99 per word (announce it)',
-  'Add a conspiracy-theory subplot',
-  'The system must now yodel between menu options',
+  // Practical
+  'Dark Mode — add a functional dark mode, not just a background swap',
+  'Mobile Panic — the primary workflow must work at phone width',
+  'Undo That — add undo for the most important destructive action',
+  'Second Persona — support a second user type with visibly different output',
+  'Export It — add copy, download, print, or share for the final result',
+  'Empty Means Empty — handle an empty submission gracefully',
+  'Garbage In — handle deliberately invalid or contradictory input',
+  'Keyboard Only — make the core workflow usable without a mouse',
+  'Refresh Survival — preserve meaningful state after a page refresh',
+  'Clock Is Ticking — add a timer/countdown that affects behavior',
+  'Voice of Reason — add one useful voice input or output',
+  'Something Happened — add a simulated real-time event with no manual refresh',
+  'Failure Is a Feature — demonstrate a failure state and a clear recovery',
+  'Explain Yourself — add a concise explanation of why it produced its result',
+  // Chaos
+  'Maximum Chaos Mode — a toggle that makes it dramatically more unhinged but still usable',
+  'Five-Year-Old Mode — explain the final result as if to a five-year-old',
+  'Board Meeting Mode — every output sounds expensive while saying almost nothing',
+  'Legal Has Entered the Chat — attach an absurd disclaimer to every result',
+  'Passive-Aggressive Mode — helper text is polite but clearly disappointed',
+  "Clippy's Revenge — an intrusive assistant gives advice nobody asked for",
+  'Villain Mode — present the workflow as a theatrical supervillain',
+  'Medieval Mode — rewrite all labels as proclamations from a royal court',
+  'Reality TV Mode — add confessionals, alliances, or an elimination screen',
+  'Unnecessary Mascot — a named mascot reacts to success, failure, and indecision',
+  'The Button Is Judging You — the main button relabels based on hesitation',
+  'Everything Is Fine — on failure, insist all is fine while showing the real fix',
+  'AI Everywhere — rename three plain features as AI and add one glowing gradient',
+  // Hostile Host
+  'Breaking News — a new fact invalidates part of the current solution',
+  'Executive Request — a "trivial" last-minute feature that hits multiple screens',
+  'Compliance Says No — one current behavior is now prohibited; add a compliant path',
+  'The API Is Down — replace one dependency with local/mocked/fallback behavior',
+  'No More Typing — the final step must use buttons or selection, not text',
+  'Demo Gods Demand Tribute — add one dramatic success moment for the crowd',
 ];
 
+// Weighted judging rubric. `completion` is AUTO — derived from the current
+// prompt's binary checklist (fraction ticked). The rest are 0–10 judge sliders.
+// weight = percent contribution to the 0–100 total.
 const CRITERIA = [
-  { key: 'functionality', label: 'Functionality' },
-  { key: 'creativity', label: 'Creativity' },
-  { key: 'crowd', label: 'Crowd Reaction' },
-  { key: 'adaptability', label: 'Adaptability' },
-  { key: 'entertainment', label: 'Entertainment' },
-  { key: 'shipit', label: 'Would It Ship?' },
+  { key: 'completion', label: 'Completion', weight: 50, auto: true },
+  { key: 'usability', label: 'Usability', weight: 20 },
+  { key: 'quality', label: 'Quality', weight: 15 },
+  { key: 'creativity', label: 'Creativity', weight: 10 },
+  { key: 'presentation', label: 'Presentation', weight: 5 },
 ];
 
 // Bracket topology: which slot a match winner feeds into.
@@ -224,8 +590,10 @@ const PHASES = ['idle', 'intro', 'compete', 'judging', 'voting', 'results', 'cha
 // ---------------------------------------------------------------------------
 
 function blankScore() {
-  const s = {};
-  for (const c of CRITERIA) s[c.key] = 0;
+  // `checks` = the binary completion checklist (sized to the current prompt's
+  // criteria when a challenge is set). The rest are 0–10 judge sliders.
+  const s = { checks: [] };
+  for (const c of CRITERIA) if (!c.auto) s[c.key] = 0;
   return s;
 }
 // Per-channel audience-vote tally for a match (web QR, SMS, phone call).
@@ -240,10 +608,27 @@ function timerView() {
   if (t.running && t.endsAt) remaining = Math.max(0, Math.round((t.endsAt - Date.now()) / 1000));
   return { running: !!t.running, remainingSec: remaining, durationSec: t.durationSec || 0 };
 }
+// Weighted 0–100 total. `completion` is derived from the checklist fraction;
+// the other categories are 0–10 sliders scaled by their weight.
 function sumScore(s) {
+  if (!s) return 0;
   let t = 0;
-  for (const c of CRITERIA) t += (s && s[c.key]) || 0;
-  return t;
+  for (const c of CRITERIA) {
+    let v;
+    if (c.auto) {
+      const n = Array.isArray(s.checks) ? s.checks.length : 0;
+      v = n ? (s.checks.filter(Boolean).length / n) * 10 : 0;
+    } else {
+      v = s[c.key] || 0;
+    }
+    t += (v / 10) * c.weight;
+  }
+  return Math.round(t * 10) / 10;
+}
+// Completion checklist progress for a side, as { done, total }.
+function completionOf(s) {
+  const n = Array.isArray(s && s.checks) ? s.checks.length : 0;
+  return { done: n ? s.checks.filter(Boolean).length : 0, total: n };
 }
 // Set the winner for the current match, advance the bracket, and fire the
 // reveal event. Shared by manual (setWinner) and auto (declareWinner).
@@ -279,7 +664,7 @@ function newMatch(round, label, durationSec) {
 function initialState() {
   return {
     eventName: 'THE PROMPT PIT',
-    subtitle: 'ClueCon 2026 · Vibe Coding Championship',
+    subtitle: 'ClueCon 2026 · Vibe Code-Off',
     contestants: DEFAULT_CONTESTANTS.map((name, i) => ({ id: 'c' + (i + 1), name, github: '' })),
     matches: {
       R1M1: newMatch('R1', 'Round 1 · Match 1'),
@@ -292,14 +677,14 @@ function initialState() {
     },
     currentMatchId: 'R1M1',
     phase: 'idle',
-    challengeId: 'worst-ivr',
+    challengeId: 'excuse-generator',
     challenges: CHALLENGES,
     // Operator-chosen active challenges (registrants pick from these). Default: all.
     activeChallengeIds: CHALLENGES.filter((c) => c.selectable).map((c) => c.id),
     criteria: CRITERIA,
     timer: {
-      durationSec: 300,
-      remainingSec: 300,
+      durationSec: 420, // Quarterfinal default (7 min); auto-set per round on setChallenge
+      remainingSec: 420,
       running: false,
       endsAt: null, // epoch ms when running
     },
@@ -347,7 +732,7 @@ const SCOPE_FOR = {
   setPhase: 'flow',
   selectMatch: 'match', setChallenge: 'match', setActiveChallenges: 'match',
   timerSet: 'timer', timerStart: 'timer', timerPause: 'timer', timerReset: 'timer', timerAdjust: 'timer',
-  setScore: 'scoring', clearScores: 'scoring', setWinner: 'scoring', declareWinner: 'scoring', clearWinner: 'scoring',
+  setScore: 'scoring', toggleCheck: 'scoring', clearScores: 'scoring', setWinner: 'scoring', declareWinner: 'scoring', clearWinner: 'scoring',
   openVoting: 'voting', closeVoting: 'voting', resetVotes: 'voting', setQr: 'voting',
   spinSabotage: 'sabotage', setSabotageEntries: 'sabotage', clearSabotageResult: 'sabotage',
   drawContestants: 'registration', removeRegistrant: 'registration', clearRegistrations: 'registration', setContestants: 'registration', renameContestants: 'registration',
@@ -504,9 +889,8 @@ function validEmail(v) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Which challenges CAN be offered at registration (the finale is reached, not
-// opted into). The operator turns a subset of these ON as the event's "active"
-// challenges; `audience-sabotage` (selectable:false) is never activatable.
+// Which prompts CAN be offered at registration. The operator turns a subset of
+// these ON as the event's "active" prompts (registrants pick from those).
 const CHALLENGE_ACTIVATABLE = CHALLENGES.filter((c) => c.selectable).map((c) => c.id);
 // The currently-active set (operator-controlled), falling back to all activatable.
 function activeChallengeSet() {
@@ -617,25 +1001,6 @@ function recomputeChallengeCounts() {
   state.challengeCounts = counts;
 }
 
-// Contestant-facing starter kits. Whitelisted files ONLY — the *.SOLUTION.yaml
-// file is intentionally never referenced or served.
-const STARTER_FILES = [
-  { id: 'worst-ivr', file: 'worst-ivr.starter.yaml', lang: 'yaml' },
-  { id: 'rogue-agent', file: 'rogue-agent.starter.yaml', lang: 'yaml' },
-  { id: 'fix-disaster', file: 'fix-this-disaster.broken.yaml', lang: 'yaml' },
-  { id: 'prompt-golf', file: 'prompt-golf.starter.txt', lang: 'text' },
-  { id: 'carrier-or-chaos', file: 'carrier-or-chaos.starter.yaml', lang: 'yaml' },
-];
-let STARTERS = [];
-function loadStarters() {
-  STARTERS = STARTER_FILES.map((s) => {
-    let code = '';
-    try { code = fs.readFileSync(path.join(__dirname, 'scaffolds', s.file), 'utf8'); } catch (e) { code = ''; }
-    const ch = CHALLENGES.find((c) => c.id === s.id);
-    return { id: s.id, title: ch ? ch.title : s.id, file: s.file, lang: s.lang, code };
-  }).filter((s) => s.code);
-}
-loadStarters();
 
 // ---------------------------------------------------------------------------
 // HTTP
@@ -720,7 +1085,6 @@ app.get('/vote', (_req, res) => sendShell(res, 'vote.html'));
 app.get('/register', (_req, res) => sendShell(res, 'register.html'));
 app.get('/stats', (_req, res) => sendShell(res, 'stats.html'));
 app.get('/how', (_req, res) => sendShell(res, 'how.html'));
-app.get('/api/starters', (_req, res) => res.json(STARTERS));
 // The app's public tunnel URL, so the voice service can point SignalWire at it.
 app.get('/api/public', (_req, res) => res.json({ publicUrl: state.publicUrl || '' }));
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
@@ -1121,6 +1485,16 @@ io.on('connection', (socket) => {
 async function handleOp(msg, socket) {
   const { type } = msg;
   const m = () => state.matches[state.currentMatchId];
+  const currentChallenge = () => CHALLENGES.find((c) => c.id === state.challengeId) || null;
+  // Size a match's completion checklists to the current prompt's criteria.
+  const sizeChecks = (match) => {
+    const n = ((currentChallenge() || {}).completion || []).length;
+    for (const side of ['a', 'b']) {
+      const cur = (match.scores[side].checks || []).slice(0, n);
+      while (cur.length < n) cur.push(false);
+      match.scores[side].checks = cur;
+    }
+  };
 
   switch (type) {
     case 'setPhase': {
@@ -1134,6 +1508,8 @@ async function handleOp(msg, socket) {
       // input (e.g. "__proto__" would resolve to Object.prototype).
       if (MATCH_ORDER.indexOf(msg.matchId) === -1) throw new Error('bad match');
       state.currentMatchId = msg.matchId;
+      // Bind this match's checklists to the current prompt's criteria.
+      sizeChecks(m());
       // Reset timer to default duration for the new match if idle.
       if (!state.timer.running) {
         state.timer.remainingSec = state.timer.durationSec;
@@ -1143,8 +1519,20 @@ async function handleOp(msg, socket) {
     }
 
     case 'setChallenge': {
-      if (!CHALLENGES.find((c) => c.id === msg.challengeId)) throw new Error('bad challenge');
+      const ch = CHALLENGES.find((c) => c.id === msg.challengeId);
+      if (!ch) throw new Error('bad challenge');
       state.challengeId = msg.challengeId;
+      // Rebind the current match's checklists to this prompt's criteria (reset).
+      const cur = m();
+      const n = (ch.completion || []).length;
+      cur.scores.a.checks = new Array(n).fill(false);
+      cur.scores.b.checks = new Array(n).fill(false);
+      // Default the build clock to this round's suggested time when idle.
+      if (!state.timer.running && ch.suggestedSec) {
+        state.timer.durationSec = ch.suggestedSec;
+        state.timer.remainingSec = ch.suggestedSec;
+        state.timer.endsAt = null;
+      }
       break;
     }
     // Choose which challenges participants can pick from (before the event).
@@ -1205,13 +1593,27 @@ async function handleOp(msg, socket) {
       const cur = m();
       const side = msg.side;
       if (side !== 'a' && side !== 'b') throw new Error('bad side');
-      if (!CRITERIA.find((c) => c.key === msg.criterion)) throw new Error('bad criterion');
+      // Only the 0–10 slider categories are settable here; `completion` is auto.
+      if (!CRITERIA.find((c) => c.key === msg.criterion && !c.auto)) throw new Error('bad criterion');
       cur.scores[side][msg.criterion] = clampScore(msg.value);
+      break;
+    }
+    // Tick/untick one binary completion criterion for a side (drives Completion).
+    case 'toggleCheck': {
+      const cur = m();
+      const side = msg.side;
+      if (side !== 'a' && side !== 'b') throw new Error('bad side');
+      sizeChecks(cur);
+      const checks = cur.scores[side].checks;
+      const idx = parseInt(msg.index, 10);
+      if (!(idx >= 0 && idx < checks.length)) throw new Error('bad index');
+      checks[idx] = typeof msg.value === 'boolean' ? msg.value : !checks[idx];
       break;
     }
     case 'clearScores': {
       const cur = m();
       cur.scores = { a: blankScore(), b: blankScore() };
+      sizeChecks(cur);
       break;
     }
 

@@ -28,7 +28,6 @@ ENV PATH="/opt/venv/bin:${PATH}"
 # --- App code (web + agent) ---
 COPY server.js ./
 COPY public ./public
-COPY scaffolds ./scaffolds
 COPY voteline/agent.py voteline/configure_number.py ./
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh \

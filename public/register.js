@@ -8,12 +8,6 @@
   var challengeTitle = {};      // id -> title (for the success screen)
   var built = false;            // one-time static bits (chips, prefill)
   var challSig = '';            // signature of the active-challenge set
-  var starters = [];            // [{id,title,lang,code}] from /api/starters
-
-  // Fetch contestant starter kits once (contestant-safe files only).
-  fetch('/api/starters').then(function (r) { return r.json(); })
-    .then(function (data) { starters = Array.isArray(data) ? data : []; })
-    .catch(function () { starters = []; });
 
   function showErr(text) { var m = $('msg'); m.textContent = text; m.className = 'msg err'; }
   function clearErr() { $('msg').className = 'msg'; }
@@ -94,69 +88,10 @@
     });
   }
 
-  function renderStarters(pickedIds) {
-    var host = $('starters');
-    host.textContent = '';
-    if (!starters.length) {
-      var m = document.createElement('div'); m.className = 'hint'; m.textContent = 'Starter kits will be available on-site.';
-      host.appendChild(m); return;
-    }
-    var pickedSet = {};
-    pickedIds.forEach(function (id) { pickedSet[id] = true; });
-    // picked challenges first
-    var ordered = starters.slice().sort(function (a, b) {
-      return (pickedSet[b.id] ? 1 : 0) - (pickedSet[a.id] ? 1 : 0);
-    });
-    ordered.forEach(function (s, idx) {
-      var kit = document.createElement('div');
-      kit.className = 'kit' + (idx === 0 ? ' open' : '');
-
-      var head = document.createElement('div'); head.className = 'kit-h';
-      var kt = document.createElement('div'); kt.className = 'kt';
-      if (pickedSet[s.id]) { var star = document.createElement('span'); star.className = 'star'; star.textContent = '★'; kt.appendChild(star); }
-      kt.appendChild(document.createTextNode(s.title));
-      var grp = document.createElement('div'); grp.className = 'grp';
-      var copy = document.createElement('button'); copy.className = 'copy'; copy.type = 'button'; copy.textContent = 'Copy';
-      var chev = document.createElement('span'); chev.className = 'chev'; chev.textContent = '▶';
-      grp.appendChild(copy); grp.appendChild(chev);
-      head.appendChild(kt); head.appendChild(grp);
-
-      var pre = document.createElement('pre');
-      var code = document.createElement('code');
-      code.textContent = s.code; // textContent — never innerHTML
-      pre.appendChild(code);
-
-      head.addEventListener('click', function (e) {
-        if (e.target === copy) return;
-        kit.classList.toggle('open');
-      });
-      copy.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var done = function () { copy.textContent = 'Copied ✓'; copy.classList.add('ok'); setTimeout(function () { copy.textContent = 'Copy'; copy.classList.remove('ok'); }, 1500); };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(s.code).then(done, function () { fallbackCopy(s.code); done(); });
-        } else { fallbackCopy(s.code); done(); }
-      });
-
-      kit.appendChild(head); kit.appendChild(pre);
-      host.appendChild(kit);
-    });
-  }
-
-  function fallbackCopy(text) {
-    try {
-      var ta = document.createElement('textarea');
-      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    } catch (e) {}
-  }
 
   function showDone(name, ids) {
     $('done-who').textContent = name;
     renderPicks($('done-picks'), ids);
-    renderStarters(ids);
     $('portal').style.display = 'none';
     $('done').style.display = 'block';
     window.scrollTo(0, 0);

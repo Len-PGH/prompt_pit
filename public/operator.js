@@ -121,7 +121,7 @@
   $('sab-save').addEventListener('click', function () {
     var entries = $('sab-entries').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
     op('setSabotageEntries', { entries: entries });
-    toast('Sabotage entries saved');
+    toast('Modifier entries saved');
   });
 
   $('c-save').addEventListener('click', function () {
@@ -172,14 +172,7 @@
       ch.appendChild(l);
     }
 
-    // score grid
-    criteria = s.criteria;
-    var g = $('score-grid');
-    g.textContent = '';
-    var head = document.createElement('div');
-    criteria.forEach(function (c) {
-      makeScoreRow(g, c);
-    });
+    // score grid is built per-prompt in render() (completion checklist + sliders)
   }
 
   function stepper(side, key) {
@@ -193,21 +186,86 @@
     wrap.appendChild(minus); wrap.appendChild(val); wrap.appendChild(plus);
     return wrap;
   }
-  function makeScoreRow(g, c) {
-    var aStep = stepper('a', c.key);
-    var label = document.createElement('div'); label.className = 'cl'; label.textContent = c.label;
-    var bStep = stepper('b', c.key);
-    // order: A | label | B
-    g.appendChild(aStep);
-    g.appendChild(label);
-    g.appendChild(bStep);
-  }
   function adjustScore(side, key, delta) {
     if (!state) return;
     var m = state.matches[state.currentMatchId];
     var cur = (m.scores[side][key] || 0) + delta;
     cur = Math.max(0, Math.min(10, cur));
     op('setScore', { side: side, criterion: key, value: cur });
+  }
+  // A pass/fail checkbox for completion criterion `i` on a side.
+  function checkCell(side, i) {
+    var wrap = document.createElement('label'); wrap.className = 'ck';
+    var cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'ck-' + side + '-' + i;
+    cb.addEventListener('change', function () { op('toggleCheck', { side: side, index: i, value: cb.checked }); });
+    wrap.appendChild(cb);
+    return wrap;
+  }
+  // Weighted 0–100 total (mirrors the server's sumScore) for live display.
+  function weightedTotal(sc, compLen) {
+    var t = 0;
+    criteria.forEach(function (c) {
+      var v;
+      if (c.auto) {
+        var done = (sc.checks || []).filter(Boolean).length;
+        v = compLen ? (done / compLen) * 10 : 0;
+      } else { v = sc[c.key] || 0; }
+      t += (v / 10) * c.weight;
+    });
+    return Math.round(t * 10) / 10;
+  }
+  // Rebuild the score grid when the prompt (its completion criteria) changes,
+  // then update checkbox states, slider values, and weighted totals.
+  function renderScores(s, m, ch) {
+    criteria = s.criteria || [];
+    var comp = (ch && ch.completion) ? ch.completion : [];
+    var g = $('score-grid');
+    var sig = s.challengeId + '|' + criteria.map(function (c) { return c.key; }).join(',') + '|' + comp.length;
+    if (g._sig !== sig) {
+      g._sig = sig; g.textContent = '';
+      criteria.forEach(function (c) {
+        if (c.auto) {
+          var h = document.createElement('div'); h.className = 'sc-sec';
+          h.textContent = c.label + ' · ' + c.weight + '% — tick what visibly works';
+          g.appendChild(h);
+          if (!comp.length) {
+            var none = document.createElement('div'); none.className = 'sc-sec muted'; none.textContent = '(no completion criteria for this prompt)';
+            g.appendChild(none);
+          }
+          comp.forEach(function (item, i) {
+            g.appendChild(checkCell('a', i));
+            var lab = document.createElement('div'); lab.className = 'cl'; lab.textContent = item;
+            g.appendChild(lab);
+            g.appendChild(checkCell('b', i));
+          });
+        } else {
+          g.appendChild(stepper('a', c.key));
+          var label = document.createElement('div'); label.className = 'cl'; label.textContent = c.label + ' · ' + c.weight + '%';
+          g.appendChild(label);
+          g.appendChild(stepper('b', c.key));
+        }
+      });
+      // weighted-total row
+      var ta = document.createElement('div'); ta.className = 'val tot'; ta.id = 'sv-a-total';
+      var tl = document.createElement('div'); tl.className = 'cl tot-l'; tl.textContent = 'Weighted total / 100';
+      var tb = document.createElement('div'); tb.className = 'val tot'; tb.id = 'sv-b-total';
+      g.appendChild(ta); g.appendChild(tl); g.appendChild(tb);
+    }
+    // values
+    criteria.forEach(function (c) {
+      if (c.auto) return;
+      var a = $('sv-a-' + c.key), b = $('sv-b-' + c.key);
+      if (a) a.textContent = m.scores.a[c.key] || 0;
+      if (b) b.textContent = m.scores.b[c.key] || 0;
+    });
+    comp.forEach(function (item, i) {
+      var ca = $('ck-a-' + i), cb = $('ck-b-' + i);
+      if (ca && notFocused(ca)) ca.checked = !!(m.scores.a.checks && m.scores.a.checks[i]);
+      if (cb && notFocused(cb)) cb.checked = !!(m.scores.b.checks && m.scores.b.checks[i]);
+    });
+    var ta2 = $('sv-a-total'), tb2 = $('sv-b-total');
+    if (ta2) ta2.textContent = weightedTotal(m.scores.a, comp.length);
+    if (tb2) tb2.textContent = weightedTotal(m.scores.b, comp.length);
   }
 
   function renderMatchList(s) {
@@ -332,7 +390,7 @@
         sel._sig = sig; sel.innerHTML = '';
         opts.forEach(function (c) {
           var o = document.createElement('option');
-          o.value = c.id; o.textContent = c.title + (c.activatable ? '' : ' · finale');
+          o.value = c.id; o.textContent = (c.round ? c.round + ' · ' : '') + c.title;
           sel.appendChild(o);
         });
       }
@@ -348,7 +406,7 @@
     // participant's pills reflect the currently-active challenges.
     var actIds = (s.challenges || []).filter(function (c) { return c.selectable; }).map(function (c) { return c.id; });
     if (actIds.join(',') !== activeIds.join(',')) { activeIds = actIds; if (lastRoster.length) renderRoster(lastRoster); }
-    $('challenge-brief').textContent = ch ? ch.brief : '';
+    $('challenge-brief').textContent = ch ? (ch.brief + (ch.test ? '  —  Test: ' + ch.test : '')) : '';
     renderActiveChallenges(s);
     // if the roster came in before we knew challenge titles, repaint it now
     if (!hadTitles && lastRoster.length) renderRoster(lastRoster);
@@ -395,14 +453,10 @@
       });
     }
 
-    // scores
+    // scores (completion checklist + weighted sliders, rebuilt per prompt)
     $('sc-a-name').textContent = 'A · ' + nameOf(m.a);
     $('sc-b-name').textContent = 'B · ' + nameOf(m.b);
-    criteria.forEach(function (c) {
-      var a = $('sv-a-' + c.key), b = $('sv-b-' + c.key);
-      if (a) a.textContent = m.scores.a[c.key] || 0;
-      if (b) b.textContent = m.scores.b[c.key] || 0;
-    });
+    renderScores(s, m, ch);
 
     // winner highlight
     $('w-a').classList.toggle('sel', m.winner === 'a');

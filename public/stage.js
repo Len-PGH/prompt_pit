@@ -30,10 +30,26 @@
     judging: 'Judging', voting: 'Vote Now', results: 'Results', champion: 'Champion'
   };
 
+  var ROUND_NAME = { QF: 'Quarterfinal', SF: 'Semifinal', CH: 'Championship' };
+  // Weighted 0–100 total (mirrors server sumScore): completion checklist +
+  // weighted judge sliders. Rounded to a whole number for the stage.
   function scoreTotal(scoreObj) {
+    if (!scoreObj || !state) return 0;
+    var criteria = state.criteria || [];
+    var chs = state.challenges || [], ch = null;
+    for (var i = 0; i < chs.length; i++) if (chs[i].id === state.challengeId) ch = chs[i];
+    var compLen = (ch && ch.completion) ? ch.completion.length : 0;
     var t = 0;
-    for (var k in scoreObj) if (Object.prototype.hasOwnProperty.call(scoreObj, k)) t += scoreObj[k] || 0;
-    return t;
+    for (var j = 0; j < criteria.length; j++) {
+      var c = criteria[j], v;
+      if (c.auto) {
+        var checks = scoreObj.checks || [], done = 0;
+        for (var k = 0; k < checks.length; k++) if (checks[k]) done++;
+        v = compLen ? (done / compLen) * 10 : 0;
+      } else { v = scoreObj[c.key] || 0; }
+      t += (v / 10) * c.weight;
+    }
+    return Math.round(t);
   }
 
   function veil(el, hidden) { if (el) el.classList.toggle('veil', !!hidden); }
@@ -157,7 +173,7 @@
     for (var i = 0; i < s.challenges.length; i++) if (s.challenges[i].id === s.challengeId) ch = s.challenges[i];
     if (!ch) return;
     $('ch-title').textContent = ch.title;
-    $('ch-tag').textContent = ch.tagline;
+    $('ch-tag').textContent = (ROUND_NAME[ch.round] ? ROUND_NAME[ch.round] + ' · ' : '') + (ch.tagline || '');
     $('ch-brief').textContent = ch.brief;
   }
 
@@ -201,19 +217,29 @@
 
     var counts = s.challengeCounts || {};
     var selectable = challenges.filter(function (c) { return c.selectable; });
-    var max = 1;
-    selectable.forEach(function (c) { if ((counts[c.id] || 0) > max) max = counts[c.id]; });
     var host = $('ps-bars');
     host.textContent = '';
-    selectable.forEach(function (c) {
-      var n = counts[c.id] || 0;
-      var row = document.createElement('div'); row.className = 'psrow';
-      var lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = c.title;
-      var track = document.createElement('div'); track.className = 'track';
-      var i = document.createElement('i'); i.style.width = Math.round((n / max) * 100) + '%'; track.appendChild(i);
-      var num = document.createElement('div'); num.className = 'num'; num.textContent = n;
-      row.appendChild(lbl); row.appendChild(track); row.appendChild(num);
-      host.appendChild(row);
+    // Group the prompts into round sections (Quarterfinals / Semifinals / Championship).
+    ['QF', 'SF', 'CH'].forEach(function (rd) {
+      var items = selectable.filter(function (c) { return c.round === rd; });
+      if (!items.length) return;
+      var sec = document.createElement('div'); sec.className = 'ps-sec';
+      var h = document.createElement('div'); h.className = 'ps-sec-h ' + rd;
+      var TIER = { QF: 'Quarterfinals', SF: 'Semifinals', CH: 'Championship' };
+      h.appendChild(document.createTextNode(TIER[rd] || rd));
+      var cnt = document.createElement('span'); cnt.className = 'n'; cnt.textContent = items.length;
+      h.appendChild(cnt);
+      sec.appendChild(h);
+      var grid = document.createElement('div'); grid.className = 'ps-grid';
+      items.forEach(function (c) {
+        var n = counts[c.id] || 0;
+        var chip = document.createElement('div'); chip.className = 'pchip' + (n > 0 ? ' has' : '');
+        var lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = c.title;
+        var num = document.createElement('span'); num.className = 'num'; num.textContent = n;
+        chip.appendChild(lbl); chip.appendChild(num);
+        grid.appendChild(chip);
+      });
+      sec.appendChild(grid); host.appendChild(sec);
     });
   }
 
